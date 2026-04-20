@@ -22,10 +22,10 @@ export default function Sidebar({ isOpen, onClose }) {
       {/* Logo / Brand */}
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">🏋️</div>
+          <div className="sidebar-logo-icon">❚█══█❚</div>
           <div className="sidebar-logo-text">
-            <h1>FitTracker</h1>
-            <span>Gym Management</span>
+            <h1>Sheheryar Fitness</h1>
+            <span>FitTracker</span>
           </div>
         </div>
       </div>
