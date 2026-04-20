@@ -52,7 +52,7 @@ export default function Login() {
       <div className="login-card">
         {/* Logo */}
         <div className="login-logo">
-          <div className="login-logo-icon">🏋️</div>
+          <div className="login-logo-icon">❚█══█❚</div>
           <h1>Sheheryar-FitTracker</h1>
           <p>Sign in to your account</p>
         </div>
