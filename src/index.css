@@ -71,6 +71,90 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: min(720px, calc(100vw - 2rem));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(250, 204, 21, 0.25);
+  border-radius: 1rem;
+  background: rgba(20, 20, 20, 0.96);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  animation: updateBannerIn 0.22s ease-out;
+}
+
+.update-banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.update-banner-content strong {
+  color: var(--color-yellow);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.update-banner-content span {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.update-banner-button {
+  flex-shrink: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, var(--color-yellow), var(--color-orange));
+  color: #111111;
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow-glow-yellow);
+}
+
+.update-banner-button:hover {
+  transform: translateY(-1px);
+}
+
+.update-banner-button:active {
+  transform: translateY(0);
+}
+
+@keyframes updateBannerIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .update-banner {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    width: auto;
+    transform: none;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .update-banner-button {
+    width: 100%;
+  }
+}
+
 a {
   text-decoration: none;
   color: inherit;
