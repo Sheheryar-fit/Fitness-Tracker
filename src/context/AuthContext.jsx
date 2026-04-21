@@ -20,14 +20,39 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
+  function getStoredUser() {
+    try {
+      return localStorage.getItem('gym_user')
+    } catch (error) {
+      console.warn('Could not read localStorage:', error)
+      return null
+    }
+  }
+
+  function setStoredUser(userData) {
+    try {
+      localStorage.setItem('gym_user', JSON.stringify(userData))
+    } catch (error) {
+      console.warn('Could not write localStorage:', error)
+    }
+  }
+
+  function clearStoredUser() {
+    try {
+      localStorage.removeItem('gym_user')
+    } catch (error) {
+      console.warn('Could not clear localStorage:', error)
+    }
+  }
+
   // Check for existing session on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem('gym_user')
+    const storedUser = getStoredUser()
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser))
       } catch {
-        localStorage.removeItem('gym_user')
+        clearStoredUser()
       }
     }
     setLoading(false)
@@ -51,7 +76,7 @@ export function AuthProvider({ children }) {
       const userData = data[0]
       // Store user in state and localStorage (no password)
       setUser(userData)
-      localStorage.setItem('gym_user', JSON.stringify(userData))
+      setStoredUser(userData)
 
       return { success: true, user: userData }
     } catch (err) {
@@ -63,7 +88,7 @@ export function AuthProvider({ children }) {
   // Logout function
   function logout() {
     setUser(null)
-    localStorage.removeItem('gym_user')
+    clearStoredUser()
     navigate('/login')
   }
 
