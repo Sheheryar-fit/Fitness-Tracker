@@ -4,11 +4,12 @@ import { useAuth } from '../context/AuthContext'
 import ConfirmDialog from './ConfirmDialog'
 import { formatDate, getLocalDateString } from '../utils/calculations'
 import { resizePhoto } from '../utils/image'
-import { removePhotoFiles } from '../lib/photoStorage'
+import { removePhotoFiles, signedPhotoUrls } from '../lib/photoStorage'
 
 export default function ProgressPhotos({ clientId }) {
   const { user } = useAuth()
   const [photos, setPhotos] = useState([])
+  const [signedUrls, setSignedUrls] = useState({}) // photo_url -> temporary link
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -28,6 +29,7 @@ export default function ProgressPhotos({ clientId }) {
 
       if (error) throw error
       setPhotos(data || [])
+      setSignedUrls(await signedPhotoUrls((data || []).map((p) => p.photo_url)))
     } catch (err) {
       console.error('Error fetching photos:', err)
     } finally {
@@ -44,7 +46,8 @@ export default function ProgressPhotos({ clientId }) {
       // 1. Shrink the photo, then upload to Supabase Storage
       const photo = await resizePhoto(file)
       const fileExt = photo.name.split('.').pop()
-      const fileName = `${clientId}-${Math.random()}.${fileExt}`
+      // The folder is the client id - storage rules use it to decide who may access the file
+      const fileName = `${crypto.randomUUID()}.${fileExt}`
       const filePath = `${clientId}/${fileName}`
 
       const { error: uploadError } = await supabase.storage
@@ -53,7 +56,7 @@ export default function ProgressPhotos({ clientId }) {
 
       if (uploadError) throw uploadError
 
-      // 2. Get Public URL
+      // 2. Stored link (identifies the file; shown through a temporary signed link)
       const { data: publicUrlData } = supabase.storage
         .from('photos')
         .getPublicUrl(filePath)
@@ -74,11 +77,13 @@ export default function ProgressPhotos({ clientId }) {
       if (dbError) throw dbError
 
       if (photoData && photoData[0]) {
+        const newLink = await signedPhotoUrls([photoUrl])
+        setSignedUrls((prev) => ({ ...prev, ...newLink }))
         setPhotos((prev) => [photoData[0], ...prev])
       }
     } catch (err) {
       console.error('Error uploading photo:', err)
-      alert('Failed to upload photo. Ensure you have creating the "photos" storage bucket.')
+      alert('Failed to upload photo. Please try again.')
     } finally {
       setUploading(false)
       // Reset input
@@ -141,14 +146,22 @@ export default function ProgressPhotos({ clientId }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem' }}>
           {photos.map((photo) => (
             <div key={photo.id} className="card" style={{ padding: '0.5rem', position: 'relative' }}>
-              <img
-                src={photo.photo_url}
-                alt={`Progress on ${photo.date}`}
-                loading="lazy"
-                decoding="async"
-                style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: 'calc(var(--radius) - 2px)', cursor: 'pointer' }}
-                onClick={() => setFullscreenPhoto(photo.photo_url)}
-              />
+              {signedUrls[photo.photo_url] ? (
+                <img
+                  src={signedUrls[photo.photo_url]}
+                  alt={`Progress on ${photo.date}`}
+                  loading="lazy"
+                  decoding="async"
+                  style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: 'calc(var(--radius) - 2px)', cursor: 'pointer' }}
+                  onClick={() => setFullscreenPhoto(signedUrls[photo.photo_url])}
+                />
+              ) : (
+                <div
+                  style={{ height: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}
+                >
+                  Photo unavailable
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', padding: '0 0.25rem' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                   {formatDate(photo.date)}
