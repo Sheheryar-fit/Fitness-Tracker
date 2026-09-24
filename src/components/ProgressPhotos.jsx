@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ConfirmDialog from './ConfirmDialog'
-import { formatDate } from '../utils/calculations'
+import { formatDate, getLocalDateString } from '../utils/calculations'
 
 export default function ProgressPhotos({ clientId }) {
   const { user } = useAuth()
@@ -64,7 +64,7 @@ export default function ProgressPhotos({ clientId }) {
           client_id: clientId,
           uploader_id: user.id,
           photo_url: photoUrl,
-          date: new Date().toISOString().split('T')[0]
+          date: getLocalDateString()
         })
         .select()
 
@@ -135,6 +135,8 @@ export default function ProgressPhotos({ clientId }) {
               <img
                 src={photo.photo_url}
                 alt={`Progress on ${photo.date}`}
+                loading="lazy"
+                decoding="async"
                 style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: 'calc(var(--radius) - 2px)', cursor: 'pointer' }}
                 onClick={() => setFullscreenPhoto(photo.photo_url)}
               />

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { formatDate } from '../../utils/calculations'
+import { formatDate, getGoalStatus, groupGoalsByStatus } from '../../utils/calculations'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import ProgressPhotos from '../../components/ProgressPhotos'
 
@@ -49,13 +49,18 @@ export default function GoalProgressAdmin() {
       if (goalsErr) throw goalsErr
       setGoals(goalsData || [])
 
-      // Get all newest measurements for these clients
-      const { data: measData, error: measErr } = await supabase
-        .from('measurements')
-        .select('*')
-        .order('date', { ascending: false })
-      
-      if (!measErr) setMeasurements(measData || [])
+      // Get measurements for this trainer's clients only (newest first)
+      const clientIds = (clientsData || []).map((c) => c.id)
+      if (clientIds.length > 0) {
+        const { data: measData, error: measErr } = await supabase
+          .from('measurements')
+          .select('client_id, date, chest, waist, arms, thigh')
+          .in('client_id', clientIds)
+          .order('date', { ascending: false })
+          .order('created_at', { ascending: false })
+
+        if (!measErr) setMeasurements(measData || [])
+      }
     } catch (err) {
       console.error('Error fetching data:', err)
     } finally {
@@ -185,6 +190,21 @@ export default function GoalProgressAdmin() {
 
   if (loading) return <div className="loading-container"><div className="spinner"></div></div>
 
+  // Group goals by status; show each client's photos once, under their first card
+  const photosShownFor = new Set()
+  const goalSections = groupGoalsByStatus(
+    goals.map((goal) => {
+      const progress = calculateProgress(goal)
+      return { goal, ...progress, status: getGoalStatus(progress.percent, goal.deadline) }
+    })
+  )
+  goalSections.forEach((section) => {
+    section.items.forEach((item) => {
+      item.showPhotos = !photosShownFor.has(item.goal.client_id)
+      photosShownFor.add(item.goal.client_id)
+    })
+  })
+
   return (
     <div>
       <div className="page-header">
@@ -299,21 +319,26 @@ export default function GoalProgressAdmin() {
         </form>
       </div>
 
-      <div style={{ marginBottom: '1rem' }}>
-        <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-white)', marginBottom: '1rem' }}>
-          Active Goals
-        </h3>
-
-        {goals.length === 0 ? (
+      {goals.length === 0 && (
+        <div style={{ marginBottom: '1rem' }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-white)', marginBottom: '1rem' }}>
+            Active Goals
+          </h3>
           <div className="empty-state">
              <div className="empty-icon">🎯</div>
              <p>No goals set yet.</p>
           </div>
-        ) : (
+        </div>
+      )}
+
+      {goalSections.map((section) => (
+        <div key={section.status} style={{ marginBottom: '2rem' }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-white)', marginBottom: '1rem' }}>
+            {section.title} ({section.items.length})
+          </h3>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
-            {goals.map((goal) => {
-              const { percent, current, badges } = calculateProgress(goal)
-              
+            {section.items.map(({ goal, percent, current, badges, status, showPhotos }) => {
               return (
                 <div className="card" key={goal.id} style={{ padding: '1.5rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -323,7 +348,11 @@ export default function GoalProgressAdmin() {
                       </h4>
                       <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>
                         {goal.description}
-                        {goal.deadline && ` (by ${formatDate(goal.deadline)})`}
+                        {goal.deadline && (
+                          <span style={status === 'overdue' ? { color: 'var(--color-red)' } : undefined}>
+                            {` (by ${formatDate(goal.deadline)})`}
+                          </span>
+                        )}
                       </p>
                     </div>
                     <button
@@ -375,14 +404,14 @@ export default function GoalProgressAdmin() {
                     </div>
                   )}
 
-                  {/* Progress Photos integration! Add below goal */}
-                  <ProgressPhotos clientId={goal.client_id} />
+                  {/* Progress Photos - once per client, under their first goal */}
+                  {showPhotos && <ProgressPhotos clientId={goal.client_id} />}
                 </div>
               )
             })}
           </div>
-        )}
-      </div>
+        </div>
+      ))}
 
       <ConfirmDialog
         isOpen={!!deleteTarget}

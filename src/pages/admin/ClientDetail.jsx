@@ -12,7 +12,8 @@ import {
   getMeasurementColor,
   formatGoal,
   formatDate,
-  generatePassword
+  generatePassword,
+  getLocalDateString
 } from '../../utils/calculations'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import AdminCoachNotes from './AdminCoachNotes'
@@ -34,7 +35,7 @@ export default function ClientDetail() {
   const [loading, setLoading] = useState(true)
 
   // Measurement form state
-  const [mDate, setMDate] = useState(new Date().toISOString().split('T')[0])
+  const [mDate, setMDate] = useState(getLocalDateString())
   const [mChest, setMChest] = useState('')
   const [mWaist, setMWaist] = useState('')
   const [mArms, setMArms] = useState('')
@@ -44,6 +45,7 @@ export default function ClientDetail() {
   // UI state
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [toast, setToast] = useState('')
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [showResetModal, setShowResetModal] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [resetting, setResetting] = useState(false)
@@ -146,7 +148,7 @@ export default function ClientDetail() {
   }
 
   function clearMeasurementForm() {
-    setMDate(new Date().toISOString().split('T')[0])
+    setMDate(getLocalDateString())
     setMChest('')
     setMWaist('')
     setMArms('')
@@ -155,6 +157,7 @@ export default function ClientDetail() {
 
   // Reset client password
   async function handleResetPassword() {
+    setShowResetConfirm(false)
     if (!client.user_id) return
     setResetting(true)
     try {
@@ -213,7 +216,7 @@ export default function ClientDetail() {
           </button>
           <button
             className="btn btn-ghost"
-            onClick={handleResetPassword}
+            onClick={() => setShowResetConfirm(true)}
             disabled={resetting}
             id="reset-password-btn"
           >
@@ -543,6 +546,16 @@ export default function ClientDetail() {
         message="Are you sure you want to delete this measurement entry? This action cannot be undone."
         onConfirm={handleDeleteMeasurement}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* Reset Password Confirmation */}
+      <ConfirmDialog
+        isOpen={showResetConfirm}
+        title="Reset Password"
+        message={`Generate a new password for "${client.name}"? Their current password will stop working immediately.`}
+        onConfirm={handleResetPassword}
+        onCancel={() => setShowResetConfirm(false)}
+        confirmText="Reset Password"
       />
 
       <AdminCoachNotes clientId={client.id} trainerId={user.id} />

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { generateUsername, generatePassword } from '../../utils/calculations'
+import { generateUsername, generatePassword, getLocalDateString } from '../../utils/calculations'
 
 /**
  * Add Client Page (Admin)
@@ -84,7 +84,7 @@ export default function AddClient() {
         starting_weight: parseFloat(startingWeight) || null,
         current_weight: parseFloat(currentWeight) || parseFloat(startingWeight) || null,
         goal: goal,
-        join_date: new Date().toISOString().split('T')[0]
+        join_date: getLocalDateString()
       })
 
       if (clientError) throw clientError

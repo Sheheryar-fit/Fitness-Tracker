@@ -57,7 +57,7 @@ export function isPositiveProgress(change, goal) {
  */
 export function calcDaysActive(joinDate) {
   if (!joinDate) return 0
-  const join = new Date(joinDate)
+  const join = parseDate(joinDate)
   const today = new Date()
   const diff = today - join
   return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)))
@@ -110,11 +110,68 @@ export function formatGoal(goal) {
  */
 export function formatDate(dateStr) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  return parseDate(dateStr).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
   })
+}
+
+/**
+ * Parse a date string, treating date-only values (YYYY-MM-DD) as local dates
+ * (new Date('2026-09-24') would be UTC midnight instead)
+ * @param {string} dateStr - Date or timestamp string
+ * @returns {Date}
+ */
+function parseDate(dateStr) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  }
+  return new Date(dateStr)
+}
+
+/**
+ * Get a date as YYYY-MM-DD in the local timezone
+ * (toISOString() uses UTC, which is still the previous day before 5 AM in Pakistan)
+ * @param {Date} date - Date to format (default: now)
+ * @returns {string} Date string like "2026-09-24"
+ */
+export function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
+ * Get a goal's status from its progress and deadline
+ * @param {number} percent - Progress percentage (0-100)
+ * @param {string} deadline - Deadline date (YYYY-MM-DD) or null
+ * @returns {string} 'completed', 'overdue' or 'active'
+ */
+export function getGoalStatus(percent, deadline) {
+  if (percent === 100) return 'completed'
+  if (deadline && deadline < getLocalDateString()) return 'overdue'
+  return 'active'
+}
+
+/**
+ * Group goals into display sections by status
+ * @param {Array} items - Objects with a `status` from getGoalStatus
+ * @returns {Array} Non-empty sections like { status, title, items }
+ */
+export function groupGoalsByStatus(items) {
+  return [
+    { status: 'active', title: 'Active Goals' },
+    { status: 'overdue', title: 'Past Deadline' },
+    { status: 'completed', title: 'Completed' }
+  ]
+    .map((section) => ({
+      ...section,
+      items: items.filter((item) => item.status === section.status)
+    }))
+    .filter((section) => section.items.length > 0)
 }
 
 /**

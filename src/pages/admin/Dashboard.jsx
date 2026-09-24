@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
+import { getLocalDateString } from '../../utils/calculations'
 
 /**
  * Admin Dashboard Page
@@ -32,9 +33,7 @@ export default function AdminDashboard() {
 
       // Active this month = clients who have measurements this month
       const now = new Date()
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-        .toISOString()
-        .split('T')[0]
+      const startOfMonth = getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1))
 
       const clientIds = clients?.map((c) => c.id) || []
 

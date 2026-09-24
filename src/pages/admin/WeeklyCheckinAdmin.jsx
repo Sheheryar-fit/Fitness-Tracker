@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { formatDate } from '../../utils/calculations'
+import { formatDate, getLocalDateString } from '../../utils/calculations'
 import ConfirmDialog from '../../components/ConfirmDialog'
 
 export default function WeeklyCheckinAdmin() {
@@ -11,7 +11,7 @@ export default function WeeklyCheckinAdmin() {
   
   // Form State
   const [selectedClientId, setSelectedClientId] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState(getLocalDateString())
   const [rating, setRating] = useState(3)
   const [notes, setNotes] = useState('')
   
