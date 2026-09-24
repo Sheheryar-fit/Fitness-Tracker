@@ -265,6 +265,7 @@ input, select, textarea {
   top: 0;
   left: 0;
   height: 100vh;
+  height: 100dvh; /* the visible height on phones, without the browser's address bar */
   display: flex;
   flex-direction: column;
   z-index: 100;
@@ -273,6 +274,7 @@ input, select, textarea {
 .sidebar-header {
   padding: 1.5rem;
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .sidebar-logo {
@@ -309,6 +311,9 @@ input, select, textarea {
 
 .sidebar-nav {
   flex: 1;
+  /* The menu scrolls on short screens so the footer (logout) stays visible */
+  min-height: 0;
+  overflow-y: auto;
   padding: 1rem 0.75rem;
   display: flex;
   flex-direction: column;
@@ -356,6 +361,7 @@ input, select, textarea {
 .sidebar-footer {
   padding: 1rem 0.75rem;
   border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .sidebar-user {

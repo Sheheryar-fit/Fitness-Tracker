@@ -151,10 +151,8 @@ export default function Sidebar({ isOpen, onClose }) {
             </NavLink>
           </>
         )}
-      </nav>
 
-      {/* Footer - User Info, Password & Logout */}
-      <div className="sidebar-footer">
+        {/* Both roles */}
         <NavLink
           to={user?.role === 'admin' ? '/admin/password' : '/client/password'}
           className={({ isActive }) =>
@@ -165,6 +163,10 @@ export default function Sidebar({ isOpen, onClose }) {
           <span className="nav-icon">🔑</span>
           <span>Change Password</span>
         </NavLink>
+      </nav>
+
+      {/* Footer - User Info & Logout */}
+      <div className="sidebar-footer">
         <div className="sidebar-user">
           <div className="sidebar-avatar">{initials}</div>
           <div className="sidebar-user-info">
