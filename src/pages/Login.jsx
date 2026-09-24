@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 /**
@@ -17,8 +17,7 @@ export default function Login() {
   // If already logged in, redirect
   if (user) {
     const target = user.role === 'admin' ? '/admin/dashboard' : '/client/dashboard'
-    navigate(target, { replace: true })
-    return null
+    return <Navigate to={target} replace />
   }
 
   // Handle form submission
@@ -76,8 +75,14 @@ export default function Login() {
               className="form-input"
               placeholder="Enter your username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => {
+                setUsername(e.target.value)
+                setError('')
+              }}
               autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               disabled={loading}
             />
           </div>
@@ -92,7 +97,10 @@ export default function Login() {
               className="form-input"
               placeholder="Enter your password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setError('')
+              }}
               autoComplete="current-password"
               disabled={loading}
             />

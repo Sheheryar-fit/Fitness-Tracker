@@ -13,5 +13,6 @@
 /client/*
   Cache-Control: no-cache, no-store, must-revalidate
 
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
+# No long/immutable caching for /assets/*: a missing asset gets the SPA fallback
+# (index.html), and caching that for a year breaks the page until the cache is cleared.
+# Pages' default (max-age=0, must-revalidate + ETag) revalidates cheaply instead.
