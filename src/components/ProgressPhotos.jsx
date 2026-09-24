@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import ConfirmDialog from './ConfirmDialog'
 import { formatDate, getLocalDateString } from '../utils/calculations'
 import { resizePhoto } from '../utils/image'
+import { removePhotoFiles } from '../lib/photoStorage'
 
 export default function ProgressPhotos({ clientId }) {
   const { user } = useAuth()
@@ -94,6 +95,12 @@ export default function ProgressPhotos({ clientId }) {
         .eq('id', deleteTarget)
 
       if (error) throw error
+
+      // Also delete the image file, otherwise its public link keeps working
+      const photo = photos.find((p) => p.id === deleteTarget)
+      const fileError = await removePhotoFiles([photo?.photo_url])
+      if (fileError) console.error('Error deleting photo file:', fileError)
+
       setPhotos((prev) => prev.filter((p) => p.id !== deleteTarget))
       setDeleteTarget(null)
     } catch (err) {

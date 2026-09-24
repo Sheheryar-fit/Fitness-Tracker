@@ -59,7 +59,11 @@ function reloadWithCacheBust() {
 
 function clearSessionAndReload() {
   try {
+    // Old login key and Supabase Auth session keys (sb-<project>-auth-token)
     localStorage.removeItem('gym_user')
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith('sb-'))
+      .forEach((key) => localStorage.removeItem(key))
     sessionStorage.clear()
   } catch (error) {
     console.warn('Could not clear browser storage:', error)

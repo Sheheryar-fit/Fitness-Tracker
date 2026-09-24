@@ -49,44 +49,22 @@ export default function AddClient() {
     setLoading(true)
 
     try {
-      // Generate username and password
-      let username = generateUsername(name)
+      // Generate a password and create the client's login.
+      // The database adds _2, _3... if the username is already taken.
       const password = generatePassword(8)
+      const { data: login, error: loginError } = await supabase
+        .rpc('create_client_login', {
+          p_username: generateUsername(name),
+          p_password: password
+        })
+        .single()
 
-      // Check if username already exists, add number suffix if so
-      const { data: existing } = await supabase
-        .from('users')
-        .select('username')
-        .like('username', `${username}%`)
-
-      if (existing && existing.length > 0) {
-        // Find existing usernames that match the base
-        const taken = existing.map((u) => u.username)
-        if (taken.includes(username)) {
-          let counter = 1
-          while (taken.includes(`${username}${counter}`)) {
-            counter++
-          }
-          username = `${username}${counter}`
-        }
-      }
-
-      // Create user account with hashed password (via RPC)
-      const { data: userId, error: userError } = await supabase.rpc(
-        'create_user_with_password',
-        {
-          p_username: username,
-          p_password: password,
-          p_role: 'client',
-          p_trainer_id: user.id
-        }
-      )
-
-      if (userError) throw userError
+      if (loginError) throw loginError
+      const username = login.new_username
 
       // Create client record
       const { error: clientError } = await supabase.from('clients').insert({
-        user_id: userId,
+        user_id: login.new_user_id,
         trainer_id: user.id,
         name: name.trim(),
         age: parseInt(age) || null,

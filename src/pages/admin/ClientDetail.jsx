@@ -225,7 +225,7 @@ export default function ClientDetail() {
     setResetting(true)
     try {
       const pwd = generatePassword(8)
-      const { error } = await supabase.rpc('reset_user_password', {
+      const { error } = await supabase.rpc('reset_client_password', {
         p_user_id: client.user_id,
         p_new_password: pwd
       })

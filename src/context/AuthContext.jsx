@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { usernameToEmail } from '../lib/authEmail'
 
 // Create the Auth Context
 const AuthContext = createContext(null)
@@ -8,37 +10,24 @@ const AuthContext = createContext(null)
 // Give up on a login request after this long (slow mobile networks, paused Supabase project)
 const LOGIN_TIMEOUT_MS = 15000
 
-// A stored session must look like a row returned by authenticate_user
-function isValidStoredUser(value) {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof value.id === 'string' &&
-    typeof value.username === 'string' &&
-    (value.role === 'admin' || value.role === 'client')
-  )
+// App user from a Supabase Auth user. Role and username live in app_metadata,
+// which only the database can set, so users can't change their own role.
+function toAppUser(authUser) {
+  const meta = authUser?.app_metadata || {}
+  if (meta.app_role !== 'admin' && meta.app_role !== 'client') return null
+  return { id: authUser.id, username: meta.username, role: meta.app_role }
 }
 
-// Calls the authenticate_user RPC; returns the user or null, throws on request errors
-async function authenticateUser(username, password, signal) {
-  const { data, error, status } = await supabase
-    .rpc('authenticate_user', {
-      p_username: username,
-      p_password: password
-    })
-    .abortSignal(signal)
-
-  if (error) {
-    const requestError = new Error(error.message)
-    requestError.status = status
-    throw requestError
-  }
-
-  // RPC returns an array; check if we got a user
-  return data && data.length > 0 ? data[0] : null
+// Resolves with { timedOut: true } if the promise takes longer than ms
+function withTimeout(promise, ms) {
+  let timer
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve({ timedOut: true }), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }
 
-// Turn a failed login request into a message the user can act on
+// Turn a failed login into a message the user can act on
 function getLoginErrorMessage(err, timedOut) {
   if (timedOut) {
     return 'The server is taking too long to respond. Check your connection and try again.'
@@ -46,11 +35,25 @@ function getLoginErrorMessage(err, timedOut) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return 'You appear to be offline. Check your internet connection and try again.'
   }
-  // status 0 = the request never got a response (network error, server unreachable)
-  if (err?.status === 0) {
+  if (err?.status === 429) {
+    return 'Too many login attempts. Please wait a few minutes and try again.'
+  }
+  if (isAuthRetryableFetchError(err)) {
     return 'Could not reach the server. Please try again in a moment.'
   }
+  if (err?.code === 'invalid_credentials' || err?.status === 400) {
+    return 'Invalid username or password'
+  }
   return 'Something went wrong while signing in. Please try again.'
+}
+
+// Sessions from the old login system are no longer valid
+function clearLegacySession() {
+  try {
+    localStorage.removeItem('gym_user')
+  } catch (error) {
+    console.warn('Could not clear localStorage:', error)
+  }
 }
 
 // Custom hook to use auth
@@ -68,84 +71,63 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
-  function getStoredUser() {
-    try {
-      return localStorage.getItem('gym_user')
-    } catch (error) {
-      console.warn('Could not read localStorage:', error)
-      return null
-    }
-  }
-
-  function setStoredUser(userData) {
-    try {
-      localStorage.setItem('gym_user', JSON.stringify(userData))
-    } catch (error) {
-      console.warn('Could not write localStorage:', error)
-    }
-  }
-
-  function clearStoredUser() {
-    try {
-      localStorage.removeItem('gym_user')
-    } catch (error) {
-      console.warn('Could not clear localStorage:', error)
-    }
-  }
-
-  // Check for existing session on mount
+  // Follow the Supabase session: restored on load, refreshed automatically,
+  // and kept in sync across tabs
   useEffect(() => {
-    const storedUser = getStoredUser()
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser)
-        if (isValidStoredUser(parsed)) {
-          setUser(parsed)
-        } else {
-          clearStoredUser()
-        }
-      } catch {
-        clearStoredUser()
+    clearLegacySession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const appUser = session ? toAppUser(session.user) : null
+
+      // Keep the same object on token refreshes so pages don't re-render
+      setUser((prev) => (prev?.id === appUser?.id && prev?.role === appUser?.role ? prev : appUser))
+
+      // A login without an app role (e.g. not created by this app) can't use it
+      if (session && !appUser) {
+        setTimeout(() => supabase.auth.signOut({ scope: 'local' }), 0)
       }
-    }
-    setLoading(false)
+      if (event === 'INITIAL_SESSION') setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  // Login function - calls the authenticate_user RPC
+  // Login with username + password through Supabase Auth
   async function login(username, password) {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS)
-
     try {
-      let userData = await authenticateUser(username, password, controller.signal)
+      const email = await usernameToEmail(username)
+      const result = await withTimeout(
+        supabase.auth.signInWithPassword({ email, password }),
+        LOGIN_TIMEOUT_MS
+      )
 
-      // Phone keyboards often capitalise the first letter; generated usernames are lowercase
-      const lowered = username.toLowerCase()
-      if (!userData && lowered !== username) {
-        userData = await authenticateUser(lowered, password, controller.signal)
+      if (result.timedOut) {
+        return { success: false, error: getLoginErrorMessage(null, true) }
+      }
+      if (result.error) {
+        console.error('Login error:', result.error)
+        return { success: false, error: getLoginErrorMessage(result.error, false) }
       }
 
-      if (!userData) {
-        return { success: false, error: 'Invalid username or password' }
+      const appUser = toAppUser(result.data.user)
+      if (!appUser) {
+        await supabase.auth.signOut({ scope: 'local' })
+        return { success: false, error: 'This account is not set up for the app. Contact your trainer.' }
       }
 
-      // Store user in state and localStorage (no password)
-      setUser(userData)
-      setStoredUser(userData)
-
-      return { success: true, user: userData }
+      setUser(appUser)
+      return { success: true, user: appUser }
     } catch (err) {
       console.error('Login error:', err)
-      return { success: false, error: getLoginErrorMessage(err, controller.signal.aborted) }
-    } finally {
-      clearTimeout(timer)
+      return { success: false, error: getLoginErrorMessage(err, false) }
     }
   }
 
-  // Logout function
-  function logout() {
+  // Logout function (this device only)
+  async function logout() {
+    const { error } = await supabase.auth.signOut({ scope: 'local' })
+    if (error) console.warn('Sign out error:', error)
     setUser(null)
-    clearStoredUser()
     navigate('/login')
   }
 

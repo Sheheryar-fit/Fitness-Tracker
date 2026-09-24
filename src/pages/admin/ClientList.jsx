@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { formatGoal, formatDate } from '../../utils/calculations'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import { removePhotoFiles } from '../../lib/photoStorage'
 
 /**
  * Client List Page (Admin)
@@ -44,27 +45,20 @@ export default function ClientList() {
     if (!deleteTarget) return
 
     try {
-      // Delete measurements first (cascade should handle, but be safe)
-      await supabase
-        .from('measurements')
-        .delete()
+      // Delete the client's photo files first; the database can't remove storage files
+      const { data: photos } = await supabase
+        .from('progress_photos')
+        .select('photo_url')
         .eq('client_id', deleteTarget.id)
+      const fileError = await removePhotoFiles((photos || []).map((p) => p.photo_url))
+      if (fileError) console.error('Error deleting photo files:', fileError)
 
-      // Delete client record
-      const { error: clientError } = await supabase
-        .from('clients')
-        .delete()
-        .eq('id', deleteTarget.id)
+      // Deletes the client, all their data and their login in one step
+      const { error: deleteError } = await supabase.rpc('delete_client', {
+        p_client_id: deleteTarget.id
+      })
 
-      if (clientError) throw clientError
-
-      // Delete the client's user account
-      if (deleteTarget.user_id) {
-        await supabase
-          .from('users')
-          .delete()
-          .eq('id', deleteTarget.user_id)
-      }
+      if (deleteError) throw deleteError
 
       // Update UI
       setClients((prev) => prev.filter((c) => c.id !== deleteTarget.id))
@@ -174,7 +168,7 @@ export default function ClientList() {
       <ConfirmDialog
         isOpen={!!deleteTarget}
         title="Delete Client"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? This will also delete all their measurements. This action cannot be undone.`}
+        message={`Are you sure you want to delete "${deleteTarget?.name}"? This also deletes their login, measurements, goals, notes, check-ins and photos. This action cannot be undone.`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />

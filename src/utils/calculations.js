@@ -224,9 +224,11 @@ export function groupGoalsByStatus(items) {
  */
 export function generatePassword(length = 8) {
   const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  // Cryptographically secure random values (Math.random is predictable)
+  const values = crypto.getRandomValues(new Uint32Array(length))
   let password = ''
   for (let i = 0; i < length; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length))
+    password += chars.charAt(values[i] % chars.length)
   }
   return password
 }

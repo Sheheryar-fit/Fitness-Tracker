@@ -21,6 +21,7 @@ const MeasurementHistory = lazy(() => import('./pages/client/MeasurementHistory'
 const ClientGoals = lazy(() => import('./pages/client/ClientGoals'))
 const ClientCoachNotes = lazy(() => import('./pages/client/ClientCoachNotes'))
 const WeeklyCheckinClient = lazy(() => import('./pages/client/WeeklyCheckinClient'))
+const ChangePassword = lazy(() => import('./pages/ChangePassword'))
 
 function RouteLoading() {
   return (
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="/admin/clients/:id/edit" element={<EditClient />} />
           <Route path="/admin/goals" element={<GoalProgressAdmin />} />
           <Route path="/admin/checkins" element={<WeeklyCheckinAdmin />} />
+          <Route path="/admin/password" element={<ChangePassword />} />
         </Route>
 
         {/* Client Routes */}
@@ -83,6 +85,7 @@ export default function App() {
           <Route path="/client/measurements" element={<MeasurementHistory />} />
           <Route path="/client/notes" element={<ClientCoachNotes />} />
           <Route path="/client/checkins" element={<WeeklyCheckinClient />} />
+          <Route path="/client/password" element={<ChangePassword />} />
         </Route>
 
         {/* Default redirect */}
