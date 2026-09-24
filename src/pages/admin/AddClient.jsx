@@ -2,7 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { generateUsername, generatePassword, getLocalDateString } from '../../utils/calculations'
+import {
+  generateUsername,
+  generatePassword,
+  getLocalDateString,
+  toTotalInches
+} from '../../utils/calculations'
 
 /**
  * Add Client Page (Admin)
@@ -15,7 +20,8 @@ export default function AddClient() {
   // Form state
   const [name, setName] = useState('')
   const [age, setAge] = useState('')
-  const [height, setHeight] = useState('')
+  const [heightFeet, setHeightFeet] = useState('')
+  const [heightInches, setHeightInches] = useState('')
   const [startingWeight, setStartingWeight] = useState('')
   const [currentWeight, setCurrentWeight] = useState('')
   const [goal, setGoal] = useState('fat_loss')
@@ -33,6 +39,10 @@ export default function AddClient() {
     // Validate
     if (!name.trim()) {
       setError('Client name is required')
+      return
+    }
+    if (parseFloat(heightInches) >= 12) {
+      setError('Height inches must be less than 12')
       return
     }
 
@@ -80,7 +90,7 @@ export default function AddClient() {
         trainer_id: user.id,
         name: name.trim(),
         age: parseInt(age) || null,
-        height: parseFloat(height) || null,
+        height: toTotalInches(heightFeet, heightInches),
         starting_weight: parseFloat(startingWeight) || null,
         current_weight: parseFloat(currentWeight) || parseFloat(startingWeight) || null,
         goal: goal,
@@ -199,19 +209,39 @@ export default function AddClient() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="client-height">
-                Height (in)
+              <label className="form-label" htmlFor="client-height-ft">
+                Height
               </label>
-              <input
-                id="client-height"
-                type="number"
-                className="form-input"
-                placeholder="e.g. 175"
-                value={height}
-                onChange={(e) => setHeight(e.target.value)}
-                step="0.1"
-                disabled={loading}
-              />
+              <div className="height-inputs">
+                <input
+                  id="client-height-ft"
+                  type="number"
+                  className="form-input"
+                  placeholder="e.g. 5"
+                  aria-label="Height feet"
+                  value={heightFeet}
+                  onChange={(e) => setHeightFeet(e.target.value)}
+                  min="0"
+                  max="8"
+                  step="1"
+                  disabled={loading}
+                />
+                <span>ft</span>
+                <input
+                  id="client-height-in"
+                  type="number"
+                  className="form-input"
+                  placeholder="e.g. 7"
+                  aria-label="Height inches"
+                  value={heightInches}
+                  onChange={(e) => setHeightInches(e.target.value)}
+                  min="0"
+                  max="11.5"
+                  step="0.5"
+                  disabled={loading}
+                />
+                <span>in</span>
+              </div>
             </div>
           </div>
 

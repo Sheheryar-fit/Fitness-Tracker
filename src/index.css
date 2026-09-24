@@ -686,6 +686,22 @@ input, select, textarea {
   margin-top: 1.5rem;
 }
 
+/* Height entered as feet + inches side by side */
+.height-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.height-inputs .form-input {
+  min-width: 0;
+}
+
+.height-inputs span {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
 .form-error {
   color: var(--color-red);
   font-size: 0.8rem;

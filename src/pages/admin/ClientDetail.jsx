@@ -12,6 +12,7 @@ import {
   getMeasurementColor,
   formatGoal,
   formatDate,
+  formatHeight,
   generatePassword,
   getLocalDateString
 } from '../../utils/calculations'
@@ -265,7 +266,7 @@ export default function ClientDetail() {
             <li>
               <span className="info-label">Height</span>
               <span className="info-value">
-                {client.height ? `${client.height} in` : '—'}
+                {formatHeight(client.height)}
               </span>
             </li>
             <li>

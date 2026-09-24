@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { formatGoal } from '../../utils/calculations'
+import { formatGoal, splitHeight, toTotalInches } from '../../utils/calculations'
 
 /**
  * Edit Client Page (Admin)
@@ -16,7 +16,8 @@ export default function EditClient() {
   // Form state
   const [name, setName] = useState('')
   const [age, setAge] = useState('')
-  const [height, setHeight] = useState('')
+  const [heightFeet, setHeightFeet] = useState('')
+  const [heightInches, setHeightInches] = useState('')
   const [startingWeight, setStartingWeight] = useState('')
   const [currentWeight, setCurrentWeight] = useState('')
   const [goal, setGoal] = useState('fat_loss')
@@ -47,7 +48,9 @@ export default function EditClient() {
         // Populate form
         setName(data.name || '')
         setAge(data.age?.toString() || '')
-        setHeight(data.height?.toString() || '')
+        const height = splitHeight(data.height)
+        setHeightFeet(height ? height.feet.toString() : '')
+        setHeightInches(height ? height.inches.toString() : '')
         setStartingWeight(data.starting_weight?.toString() || '')
         setCurrentWeight(data.current_weight?.toString() || '')
         setGoal(data.goal || 'fat_loss')
@@ -71,6 +74,10 @@ export default function EditClient() {
       setError('Client name is required')
       return
     }
+    if (parseFloat(heightInches) >= 12) {
+      setError('Height inches must be less than 12')
+      return
+    }
 
     setSaving(true)
 
@@ -80,7 +87,7 @@ export default function EditClient() {
         .update({
           name: name.trim(),
           age: parseInt(age) || null,
-          height: parseFloat(height) || null,
+          height: toTotalInches(heightFeet, heightInches),
           starting_weight: parseFloat(startingWeight) || null,
           current_weight: parseFloat(currentWeight) || null,
           goal: goal
@@ -155,18 +162,37 @@ export default function EditClient() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="edit-height">
-                Height (in)
+              <label className="form-label" htmlFor="edit-height-ft">
+                Height
               </label>
-              <input
-                id="edit-height"
-                type="number"
-                className="form-input"
-                value={height}
-                onChange={(e) => setHeight(e.target.value)}
-                step="0.1"
-                disabled={saving}
-              />
+              <div className="height-inputs">
+                <input
+                  id="edit-height-ft"
+                  type="number"
+                  className="form-input"
+                  aria-label="Height feet"
+                  value={heightFeet}
+                  onChange={(e) => setHeightFeet(e.target.value)}
+                  min="0"
+                  max="8"
+                  step="1"
+                  disabled={saving}
+                />
+                <span>ft</span>
+                <input
+                  id="edit-height-in"
+                  type="number"
+                  className="form-input"
+                  aria-label="Height inches"
+                  value={heightInches}
+                  onChange={(e) => setHeightInches(e.target.value)}
+                  min="0"
+                  max="11.5"
+                  step="0.5"
+                  disabled={saving}
+                />
+                <span>in</span>
+              </div>
             </div>
           </div>
 

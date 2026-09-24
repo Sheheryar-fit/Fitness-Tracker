@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ConfirmDialog from './ConfirmDialog'
 import { formatDate, getLocalDateString } from '../utils/calculations'
+import { resizePhoto } from '../utils/image'
 
 export default function ProgressPhotos({ clientId }) {
   const { user } = useAuth()
@@ -39,14 +40,15 @@ export default function ProgressPhotos({ clientId }) {
 
     setUploading(true)
     try {
-      // 1. Upload to Supabase Storage
-      const fileExt = file.name.split('.').pop()
+      // 1. Shrink the photo, then upload to Supabase Storage
+      const photo = await resizePhoto(file)
+      const fileExt = photo.name.split('.').pop()
       const fileName = `${clientId}-${Math.random()}.${fileExt}`
       const filePath = `${clientId}/${fileName}`
 
       const { error: uploadError } = await supabase.storage
         .from('photos')
-        .upload(filePath, file)
+        .upload(filePath, photo)
 
       if (uploadError) throw uploadError
 

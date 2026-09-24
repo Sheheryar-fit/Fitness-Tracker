@@ -93,6 +93,46 @@ export function getMeasurementColor(current, previous) {
 }
 
 /**
+ * Split a stored height (total inches) into feet and inches.
+ * Older entries were typed as feet.inches (5.3 = 5 ft 3 in); nobody is
+ * under 12 inches tall, so values below 12 are read that way.
+ * @param {number} value - Stored height
+ * @returns {{feet: number, inches: number}|null} null when there is no height
+ */
+export function splitHeight(value) {
+  const num = parseFloat(value)
+  if (!num || num <= 0) return null
+  if (num < 12) {
+    const feet = Math.floor(num)
+    return { feet, inches: Math.round((num - feet) * 10) }
+  }
+  const feet = Math.floor(num / 12)
+  return { feet, inches: parseFloat((num - feet * 12).toFixed(1)) }
+}
+
+/**
+ * Combine feet and inches form values into total inches for storage
+ * @param {string|number} feet
+ * @param {string|number} inches
+ * @returns {number|null} Total inches, or null when both are empty/zero
+ */
+export function toTotalInches(feet, inches) {
+  const total = (parseFloat(feet) || 0) * 12 + (parseFloat(inches) || 0)
+  return total > 0 ? parseFloat(total.toFixed(1)) : null
+}
+
+/**
+ * Format a stored height for display
+ * @param {number} value - Stored height
+ * @returns {string} Like "5 ft 7 in", or '—'
+ */
+export function formatHeight(value) {
+  const height = splitHeight(value)
+  if (!height) return '—'
+  return `${height.feet} ft ${height.inches} in`
+}
+
+/**
  * Format a goal enum into display text
  * @param {string} goal - 'fat_loss' or 'muscle_gain'
  * @returns {string} 'Fat Loss' or 'Muscle Gain'

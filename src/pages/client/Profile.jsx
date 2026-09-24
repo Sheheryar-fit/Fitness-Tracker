@@ -8,7 +8,8 @@ import {
   isPositiveProgress,
   calcDaysActive,
   formatGoal,
-  formatDate
+  formatDate,
+  formatHeight
 } from '../../utils/calculations'
 
 /**
@@ -106,7 +107,7 @@ export default function ClientProfile() {
             <li>
               <span className="info-label">Height</span>
               <span className="info-value">
-                {client.height ? `${client.height} in` : '—'}
+                {formatHeight(client.height)}
               </span>
             </li>
             <li>
