@@ -8,7 +8,8 @@ import { formatDate, getLocalDateString } from '../utils/calculations'
 import { resizePhoto } from '../utils/image'
 import { removePhotoFiles, signedPhotoUrls } from '../lib/photoStorage'
 
-export default function ProgressPhotos({ clientId }) {
+// readOnly: only look at the photos (no upload or delete), e.g. for the master
+export default function ProgressPhotos({ clientId, readOnly = false }) {
   const { user } = useAuth()
   const [photos, setPhotos] = useState([])
   const [signedUrls, setSignedUrls] = useState({}) // photo_url -> temporary link
@@ -138,24 +139,26 @@ export default function ProgressPhotos({ clientId }) {
           <span className="section-count">{photos.length}</span>
         </h3>
 
-        <div>
-          <input
-            type="file"
-            id={`photo-upload-${clientId}`}
-            accept="image/*"
-            className="sr-only"
-            onChange={handleFileUpload}
-            disabled={uploading}
-          />
-          <label
-            htmlFor={`photo-upload-${clientId}`}
-            className={`btn btn-secondary btn-sm ${uploading ? 'is-busy' : ''}`}
-            aria-disabled={uploading}
-          >
-            {uploading ? <span className="btn-spinner" aria-hidden="true" /> : <Upload size={16} aria-hidden="true" />}
-            {uploading ? 'Uploading...' : 'Upload Photo'}
-          </label>
-        </div>
+        {!readOnly && (
+          <div>
+            <input
+              type="file"
+              id={`photo-upload-${clientId}`}
+              accept="image/*"
+              className="sr-only"
+              onChange={handleFileUpload}
+              disabled={uploading}
+            />
+            <label
+              htmlFor={`photo-upload-${clientId}`}
+              className={`btn btn-secondary btn-sm ${uploading ? 'is-busy' : ''}`}
+              aria-disabled={uploading}
+            >
+              {uploading ? <span className="btn-spinner" aria-hidden="true" /> : <Upload size={16} aria-hidden="true" />}
+              {uploading ? 'Uploading...' : 'Upload Photo'}
+            </label>
+          </div>
+        )}
       </div>
 
       {photos.length === 0 ? (
@@ -185,7 +188,7 @@ export default function ProgressPhotos({ clientId }) {
               )}
               <div className="photo-caption">
                 <span>{formatDate(photo.date)}</span>
-                {(user.role === 'admin' || user.id === photo.uploader_id) && (
+                {!readOnly && (user.role === 'admin' || user.id === photo.uploader_id) && (
                   <button
                     className="icon-btn"
                     onClick={() => setDeleteTarget(photo.id)}

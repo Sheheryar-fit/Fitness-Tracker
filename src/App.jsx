@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { getHomePath } from './utils/roles'
 
 // Components
 import Layout from './components/Layout'
@@ -21,6 +22,9 @@ const MeasurementHistory = lazy(() => import('./pages/client/MeasurementHistory'
 const ClientGoals = lazy(() => import('./pages/client/ClientGoals'))
 const ClientCoachNotes = lazy(() => import('./pages/client/ClientCoachNotes'))
 const WeeklyCheckinClient = lazy(() => import('./pages/client/WeeklyCheckinClient'))
+const MasterDashboard = lazy(() => import('./pages/master/Dashboard'))
+const MasterClientList = lazy(() => import('./pages/master/ClientList'))
+const MasterClientDetail = lazy(() => import('./pages/master/ClientDetail'))
 const ChangePassword = lazy(() => import('./pages/ChangePassword'))
 
 function RouteLoading() {
@@ -88,19 +92,24 @@ export default function App() {
           <Route path="/client/password" element={<ChangePassword />} />
         </Route>
 
+        {/* Master Routes (read-only view of every trainer and client) */}
+        <Route
+          element={
+            <ProtectedRoute allowedRole="master">
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/master/dashboard" element={<MasterDashboard />} />
+          <Route path="/master/clients" element={<MasterClientList />} />
+          <Route path="/master/clients/:id" element={<MasterClientDetail />} />
+          <Route path="/master/password" element={<ChangePassword />} />
+        </Route>
+
         {/* Default redirect */}
         <Route
           path="*"
-          element={
-            user ? (
-              <Navigate
-                to={user.role === 'admin' ? '/admin/dashboard' : '/client/dashboard'}
-                replace
-              />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
+          element={<Navigate to={user ? getHomePath(user.role) : '/login'} replace />}
         />
       </Routes>
     </Suspense>

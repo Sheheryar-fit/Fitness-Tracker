@@ -36,9 +36,17 @@ const CLIENT_LINKS = [
   { to: '/client/checkins', label: 'Check-ins', icon: CalendarCheck }
 ]
 
+const MASTER_LINKS = [
+  { to: '/master/dashboard', label: 'Overview', icon: LayoutDashboard },
+  { to: '/master/clients', label: 'Clients', icon: Users, matchChildren: true }
+]
+
+const LINKS = { admin: ADMIN_LINKS, client: CLIENT_LINKS, master: MASTER_LINKS }
+const ROLE_LABELS = { admin: 'Trainer', client: 'Client', master: 'Master' }
+
 /**
  * Sidebar Component - Persistent left navigation
- * Shows different nav items based on user role (admin/client)
+ * Shows different nav items based on user role (admin/client/master)
  */
 export default function Sidebar({ isOpen, hidden, onClose }) {
   const { user, logout } = useAuth()
@@ -50,8 +58,7 @@ export default function Sidebar({ isOpen, hidden, onClose }) {
     if (isOpen) closeButtonRef.current?.focus()
   }, [isOpen])
 
-  const isAdmin = user?.role === 'admin'
-  const links = isAdmin ? ADMIN_LINKS : CLIENT_LINKS
+  const links = LINKS[user?.role] || []
 
   // "Clients" stays highlighted on a client's detail/edit pages, but not on Add Client
   function isLinkActive(link, isActive) {
@@ -105,7 +112,7 @@ export default function Sidebar({ isOpen, hidden, onClose }) {
         <span className="sidebar-section-label">Account</span>
         <InstallApp variant="nav" />
         <NavLink
-          to={isAdmin ? '/admin/password' : '/client/password'}
+          to={`/${user?.role}/password`}
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           id="change-password-link"
         >
@@ -120,7 +127,7 @@ export default function Sidebar({ isOpen, hidden, onClose }) {
           <Avatar name={user?.username} />
           <div className="sidebar-user-info">
             <div className="sidebar-user-name">{user?.username}</div>
-            <div className="sidebar-user-role">{isAdmin ? 'Trainer' : 'Client'}</div>
+            <div className="sidebar-user-role">{ROLE_LABELS[user?.role]}</div>
           </div>
         </div>
         <button className="logout-btn" onClick={logout} id="logout-button">

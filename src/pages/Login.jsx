@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Dumbbell, Eye, EyeOff, TriangleAlert, Ruler, Target, CalendarCheck, LogIn } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { getHomePath } from '../utils/roles'
 import InstallApp from '../components/InstallApp'
 
 const FEATURES = [
@@ -25,8 +26,7 @@ export default function Login() {
 
   // If already logged in, redirect
   if (user) {
-    const target = user.role === 'admin' ? '/admin/dashboard' : '/client/dashboard'
-    return <Navigate to={target} replace />
+    return <Navigate to={getHomePath(user.role)} replace />
   }
 
   // Handle form submission
@@ -46,10 +46,7 @@ export default function Login() {
 
     if (result.success) {
       // Redirect based on role
-      const target = result.user.role === 'admin'
-        ? '/admin/dashboard'
-        : '/client/dashboard'
-      navigate(target, { replace: true })
+      navigate(getHomePath(result.user.role), { replace: true })
     } else {
       setError(result.error)
     }

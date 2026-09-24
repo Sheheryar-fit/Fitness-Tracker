@@ -188,6 +188,56 @@ export function getLocalDateString(date = new Date()) {
 }
 
 /**
+ * Work out how far a client is towards a goal
+ * @param {object} goal - Goal row (target_metric, starting_value, target_value)
+ * @param {number} currentWeight - The client's current weight in kg
+ * @param {object} latestMeasurement - The client's newest measurement, if any
+ * @returns {{ percent: number, current: number, badges: string[] }} Progress 0-100, the current value and milestone badges
+ */
+export function calculateGoalProgress(goal, currentWeight, latestMeasurement) {
+  let currentVal = goal.starting_value
+
+  if (goal.target_metric === 'Weight' && currentWeight) {
+    currentVal = currentWeight
+  } else if (latestMeasurement) {
+    if (goal.target_metric === 'Chest' && latestMeasurement.chest) currentVal = latestMeasurement.chest
+    if (goal.target_metric === 'Waist' && latestMeasurement.waist) currentVal = latestMeasurement.waist
+    if (goal.target_metric === 'Arms' && latestMeasurement.arms) currentVal = latestMeasurement.arms
+    if (goal.target_metric === 'Thigh' && latestMeasurement.thigh) currentVal = latestMeasurement.thigh
+  }
+
+  const start = parseFloat(goal.starting_value)
+  const target = parseFloat(goal.target_value)
+  const current = parseFloat(currentVal)
+
+  if (isNaN(start) || isNaN(target) || isNaN(current)) return { percent: 0, current, badges: [] }
+
+  const totalDiff = Math.abs(start - target)
+  if (totalDiff === 0) return { percent: 100, current, badges: ['100% Goal Hit 🏆'] }
+
+  // Depending on if the target is lower or higher than the start
+  let percent
+  if (target < start) {
+    if (current <= target) percent = 100
+    else if (current >= start) percent = 0
+    else percent = ((start - current) / totalDiff) * 100
+  } else {
+    if (current >= target) percent = 100
+    else if (current <= start) percent = 0
+    else percent = ((current - start) / totalDiff) * 100
+  }
+
+  percent = Math.max(0, Math.min(100, Math.round(percent)))
+
+  const badges = []
+  if (percent >= 25 && percent < 50) badges.push('Started Strong 🥉')
+  if (percent >= 50 && percent < 100) badges.push('Halfway There 🥈')
+  if (percent === 100) badges.push('Target Reached 🏆')
+
+  return { percent, current, badges }
+}
+
+/**
  * Get a goal's status from its progress and deadline
  * @param {number} percent - Progress percentage (0-100)
  * @param {string} deadline - Deadline date (YYYY-MM-DD) or null

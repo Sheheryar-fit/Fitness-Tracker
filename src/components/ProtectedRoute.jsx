@@ -1,11 +1,12 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getHomePath } from '../utils/roles'
 
 /**
  * ProtectedRoute Component
  * Guards routes based on authentication and role
- * 
- * @param {string} allowedRole - 'admin' or 'client'
+ *
+ * @param {string} allowedRole - 'admin', 'client' or 'master'
  * @param {ReactNode} children - Child components to render
  */
 export default function ProtectedRoute({ allowedRole, children }) {
@@ -27,8 +28,7 @@ export default function ProtectedRoute({ allowedRole, children }) {
 
   // Wrong role → redirect to correct dashboard
   if (allowedRole && user.role !== allowedRole) {
-    const redirect = user.role === 'admin' ? '/admin/dashboard' : '/client/dashboard'
-    return <Navigate to={redirect} replace />
+    return <Navigate to={getHomePath(user.role)} replace />
   }
 
   return children

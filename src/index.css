@@ -1436,6 +1436,12 @@ input[type='date'].form-input::-webkit-calendar-picker-indicator {
   max-width: 420px;
 }
 
+.toolbar .form-select {
+  flex: 1 1 150px;
+  width: auto;
+  max-width: 220px;
+}
+
 .client-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));

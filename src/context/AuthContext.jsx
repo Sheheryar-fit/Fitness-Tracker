@@ -10,11 +10,13 @@ const AuthContext = createContext(null)
 // Give up on a login request after this long (slow mobile networks, paused Supabase project)
 const LOGIN_TIMEOUT_MS = 15000
 
+const APP_ROLES = ['admin', 'client', 'master']
+
 // App user from a Supabase Auth user. Role and username live in app_metadata,
 // which only the database can set, so users can't change their own role.
 function toAppUser(authUser) {
   const meta = authUser?.app_metadata || {}
-  if (meta.app_role !== 'admin' && meta.app_role !== 'client') return null
+  if (!APP_ROLES.includes(meta.app_role)) return null
   return { id: authUser.id, username: meta.username, role: meta.app_role }
 }
 
