@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { formatDate, getGoalStatus, groupGoalsByStatus } from '../../utils/calculations'
+import { Link } from 'react-router-dom'
+import { Target, Plus, X, Users, UserPlus } from 'lucide-react'
+import { getGoalStatus, groupGoalsByStatus } from '../../utils/calculations'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import ProgressPhotos from '../../components/ProgressPhotos'
+import PageHeader from '../../components/PageHeader'
+import GoalCard from '../../components/GoalCard'
+import EmptyState from '../../components/EmptyState'
+import Loading from '../../components/Loading'
 
 export default function GoalProgressAdmin() {
   const { user } = useAuth()
@@ -22,6 +28,7 @@ export default function GoalProgressAdmin() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -95,6 +102,7 @@ export default function GoalProgressAdmin() {
         setTargetValue('')
         setStartingValue('')
         setDeadline('')
+        setShowForm(false)
       }
     } catch (err) {
       console.error('Error adding goal:', err)
@@ -188,7 +196,7 @@ export default function GoalProgressAdmin() {
     return { percent: progressPercent, current, badges }
   }
 
-  if (loading) return <div className="loading-container"><div className="spinner"></div></div>
+  if (loading) return <Loading />
 
   // Group goals by status; show each client's photos once, under their first card
   const photosShownFor = new Set()
@@ -205,212 +213,191 @@ export default function GoalProgressAdmin() {
     })
   })
 
+  // The form is always open while there are no goals yet
+  const formOpen = showForm || goals.length === 0
+  const unit = targetMetric === 'Weight' ? 'kg' : 'in'
+
   return (
     <div>
-      <div className="page-header">
-        <h2>Goal Progress</h2>
-        <p>Set and track specific metric goals for your clients</p>
-      </div>
-
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <div className="card-header">
-          <span className="card-title">Set New Goal</span>
-        </div>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" htmlFor="goal-client">Client *</label>
-              <select
-                id="goal-client"
-                className="form-select"
-                value={selectedClientId}
-                onChange={(e) => setSelectedClientId(e.target.value)}
-                required
-                disabled={submitting}
-              >
-                <option value="" disabled>Select a client...</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label" htmlFor="goal-metric">Target Metric *</label>
-              <select
-                id="goal-metric"
-                className="form-select"
-                value={targetMetric}
-                onChange={(e) => setTargetMetric(e.target.value)}
-                required
-                disabled={submitting}
-              >
-                <option value="Weight">Weight (kg)</option>
-                <option value="Chest">Chest (in)</option>
-                <option value="Waist">Waist (in)</option>
-                <option value="Arms">Arms (in)</option>
-                <option value="Thigh">Thigh (in)</option>
-              </select>
-            </div>
-          </div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" htmlFor="goal-start">Starting Value *</label>
-              <input
-                id="goal-start"
-                type="number"
-                step="0.1"
-                className="form-input"
-                value={startingValue}
-                onChange={(e) => setStartingValue(e.target.value)}
-                required
-                disabled={submitting}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="goal-target">Target Value *</label>
-              <input
-                id="goal-target"
-                type="number"
-                step="0.1"
-                className="form-input"
-                value={targetValue}
-                onChange={(e) => setTargetValue(e.target.value)}
-                required
-                disabled={submitting}
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" htmlFor="goal-deadline">Deadline</label>
-              <input
-                id="goal-deadline"
-                type="date"
-                className="form-input"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                disabled={submitting}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="goal-desc">Description *</label>
-              <input
-                id="goal-desc"
-                type="text"
-                className="form-input"
-                placeholder="e.g. Lose fat for the summer"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                required
-                disabled={submitting}
-              />
-            </div>
-          </div>
-
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary" disabled={submitting || !selectedClientId}>
-              {submitting ? 'Setting Goal...' : '🎯 Set Goal'}
+      <PageHeader
+        title="Goal progress"
+        subtitle="Set metric goals for your clients and follow their progress"
+        actions={
+          goals.length > 0 && (
+            <button
+              className={`btn ${formOpen ? 'btn-secondary' : 'btn-primary'}`}
+              onClick={() => setShowForm((open) => !open)}
+              aria-expanded={formOpen}
+              aria-controls="new-goal-form"
+            >
+              {formOpen ? <X size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
+              {formOpen ? 'Close' : 'New Goal'}
             </button>
-          </div>
-        </form>
-      </div>
+          )
+        }
+      />
 
-      {goals.length === 0 && (
-        <div style={{ marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-white)', marginBottom: '1rem' }}>
-            Active Goals
-          </h3>
-          <div className="empty-state">
-             <div className="empty-icon">🎯</div>
-             <p>No goals set yet.</p>
+      {formOpen && (
+        <div className="card page" id="new-goal-form" style={{ marginBottom: '2rem' }}>
+          <div className="card-header">
+            <span className="card-title">
+              <Target size={20} aria-hidden="true" />
+              Set a new goal
+            </span>
           </div>
+
+          {clients.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="No clients yet"
+              text="Add a client first, then set goals for them here."
+              action={
+                <Link to="/admin/clients/add" className="btn btn-primary">
+                  <UserPlus size={18} aria-hidden="true" />
+                  Add Client
+                </Link>
+              }
+            />
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="goal-client">Client *</label>
+                  <select
+                    id="goal-client"
+                    className="form-select"
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    required
+                    disabled={submitting}
+                  >
+                    <option value="" disabled>Select a client...</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="goal-metric">Metric *</label>
+                  <select
+                    id="goal-metric"
+                    className="form-select"
+                    value={targetMetric}
+                    onChange={(e) => setTargetMetric(e.target.value)}
+                    required
+                    disabled={submitting}
+                  >
+                    <option value="Weight">Weight (kg)</option>
+                    <option value="Chest">Chest (in)</option>
+                    <option value="Waist">Waist (in)</option>
+                    <option value="Arms">Arms (in)</option>
+                    <option value="Thigh">Thigh (in)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="goal-start">Starting value ({unit}) *</label>
+                  <input
+                    id="goal-start"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.1"
+                    className="form-input"
+                    value={startingValue}
+                    onChange={(e) => setStartingValue(e.target.value)}
+                    required
+                    disabled={submitting}
+                  />
+                  <span className="form-hint">Filled in from the latest measurement</span>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="goal-target">Target value ({unit}) *</label>
+                  <input
+                    id="goal-target"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.1"
+                    className="form-input"
+                    value={targetValue}
+                    onChange={(e) => setTargetValue(e.target.value)}
+                    required
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="goal-desc">Description *</label>
+                  <input
+                    id="goal-desc"
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Lose fat for the summer"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    required
+                    disabled={submitting}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="goal-deadline">Deadline</label>
+                  <input
+                    id="goal-deadline"
+                    type="date"
+                    className="form-input"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary" disabled={submitting || !selectedClientId}>
+                  {submitting ? <span className="btn-spinner" aria-hidden="true" /> : <Target size={18} aria-hidden="true" />}
+                  {submitting ? 'Setting Goal...' : 'Set Goal'}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       )}
 
+      {goals.length === 0 && (
+        <EmptyState icon={Target} title="No goals set yet" text="Goals you set appear here with live progress." />
+      )}
+
       {goalSections.map((section) => (
-        <div key={section.status} style={{ marginBottom: '2rem' }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-white)', marginBottom: '1rem' }}>
-            {section.title} ({section.items.length})
-          </h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
-            {section.items.map(({ goal, percent, current, badges, status, showPhotos }) => {
-              return (
-                <div className="card" key={goal.id} style={{ padding: '1.5rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <div>
-                      <h4 style={{ color: 'var(--color-yellow)', margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>
-                        {goal.client?.name || 'Unknown Client'} - {goal.target_metric}
-                      </h4>
-                      <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>
-                        {goal.description}
-                        {goal.deadline && (
-                          <span style={status === 'overdue' ? { color: 'var(--color-red)' } : undefined}>
-                            {` (by ${formatDate(goal.deadline)})`}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setDeleteTarget(goal.id)}
-                      style={{ color: 'var(--color-red)' }}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                  
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
-                    <span>Start: <strong>{goal.starting_value}</strong></span>
-                    <span>Current: <strong>{current}</strong></span>
-                    <span>Target: <strong>{goal.target_value}</strong></span>
-                  </div>
-
-                  <div className="progress-container">
-                    <div className="progress-bar-bg" style={{ height: '14px' }}>
-                      <div
-                        className="progress-bar-fill"
-                        style={{
-                          width: `${percent}%`,
-                          background: percent === 100 
-                            ? 'linear-gradient(90deg, var(--color-green), #84cc16)' 
-                            : 'linear-gradient(90deg, var(--color-orange), var(--color-yellow))'
-                        }}
-                      ></div>
-                    </div>
-                    <div style={{ textAlign: 'right', marginTop: '0.25rem', fontSize: '0.8rem', fontWeight: 600 }}>
-                      {percent}% Completed
-                    </div>
-                  </div>
-
-                  {badges.length > 0 && (
-                    <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                      {badges.map((badge, idx) => (
-                        <span key={idx} style={{ 
-                          background: 'rgba(250, 204, 21, 0.15)', 
-                          color: 'var(--color-yellow)', 
-                          padding: '0.25rem 0.75rem', 
-                          borderRadius: '999px',
-                          fontSize: '0.8rem',
-                          fontWeight: 600
-                        }}>
-                          {badge}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Progress Photos - once per client, under their first goal */}
-                  {showPhotos && <ProgressPhotos clientId={goal.client_id} />}
-                </div>
-              )
-            })}
+        <section key={section.status} style={{ marginBottom: '2rem' }}>
+          <div className="section-header">
+            <h2 className="section-title">
+              {section.title}
+              <span className="section-count">{section.items.length}</span>
+            </h2>
           </div>
-        </div>
+
+          <div className="goal-list stagger">
+            {section.items.map(({ goal, percent, current, badges, status, showPhotos }) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                title={`${goal.client?.name || 'Unknown client'} · ${goal.target_metric}`}
+                percent={percent}
+                current={current}
+                badges={badges}
+                status={status}
+                onDelete={() => setDeleteTarget(goal.id)}
+              >
+                {/* Progress Photos - once per client, under their first goal */}
+                {showPhotos && <ProgressPhotos clientId={goal.client_id} />}
+              </GoalCard>
+            ))}
+          </div>
+        </section>
       ))}
 
       <ConfirmDialog

@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { Save, TriangleAlert } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { formatGoal, splitHeight, toTotalInches } from '../../utils/calculations'
+import { splitHeight, toTotalInches } from '../../utils/calculations'
+import PageHeader from '../../components/PageHeader'
+import ClientFormFields from '../../components/ClientFormFields'
+import Loading from '../../components/Loading'
+import Toast from '../../components/Toast'
 
 /**
  * Edit Client Page (Admin)
@@ -15,6 +20,7 @@ export default function EditClient() {
 
   // Form state
   const [name, setName] = useState('')
+  const [savedName, setSavedName] = useState('')
   const [age, setAge] = useState('')
   const [heightFeet, setHeightFeet] = useState('')
   const [heightInches, setHeightInches] = useState('')
@@ -47,6 +53,7 @@ export default function EditClient() {
 
         // Populate form
         setName(data.name || '')
+        setSavedName(data.name || '')
         setAge(data.age?.toString() || '')
         const height = splitHeight(data.height)
         setHeightFeet(height ? height.feet.toString() : '')
@@ -97,6 +104,7 @@ export default function EditClient() {
 
       if (updateError) throw updateError
 
+      setSavedName(name.trim())
       setToast('Changes saved successfully!')
       setTimeout(() => setToast(''), 3000)
     } catch (err) {
@@ -107,172 +115,55 @@ export default function EditClient() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-      </div>
-    )
-  }
+  if (loading) return <Loading />
 
   return (
     <div>
-      {/* Page Header */}
-      <div className="page-header">
-        <h2>Edit Client</h2>
-        <p>Update {name}'s information</p>
-      </div>
+      <PageHeader
+        back={{ to: `/admin/clients/${id}`, label: savedName || 'Client' }}
+        title="Edit client"
+        subtitle={`Update ${savedName}'s details`}
+      />
 
-      {/* Form */}
-      <div className="card" style={{ maxWidth: '600px' }}>
-        {error && <div className="login-error">⚠️ {error}</div>}
+      <div className="card" style={{ maxWidth: '680px' }}>
+        {error && (
+          <div className="alert alert-error" role="alert">
+            <TriangleAlert size={18} aria-hidden="true" />
+            <span>{error}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
-          {/* Name */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="edit-name">
-              Full Name *
-            </label>
-            <input
-              id="edit-name"
-              type="text"
-              className="form-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={saving}
-              required
-            />
-          </div>
+          <ClientFormFields
+            idPrefix="edit"
+            disabled={saving}
+            name={name} setName={setName}
+            age={age} setAge={setAge}
+            heightFeet={heightFeet} setHeightFeet={setHeightFeet}
+            heightInches={heightInches} setHeightInches={setHeightInches}
+            startingWeight={startingWeight} setStartingWeight={setStartingWeight}
+            currentWeight={currentWeight} setCurrentWeight={setCurrentWeight}
+            goal={goal} setGoal={setGoal}
+          />
 
-          {/* Age & Height */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" htmlFor="edit-age">
-                Age
-              </label>
-              <input
-                id="edit-age"
-                type="number"
-                className="form-input"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-                min="10"
-                max="100"
-                disabled={saving}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="edit-height-ft">
-                Height
-              </label>
-              <div className="height-inputs">
-                <input
-                  id="edit-height-ft"
-                  type="number"
-                  className="form-input"
-                  aria-label="Height feet"
-                  value={heightFeet}
-                  onChange={(e) => setHeightFeet(e.target.value)}
-                  min="0"
-                  max="8"
-                  step="1"
-                  disabled={saving}
-                />
-                <span>ft</span>
-                <input
-                  id="edit-height-in"
-                  type="number"
-                  className="form-input"
-                  aria-label="Height inches"
-                  value={heightInches}
-                  onChange={(e) => setHeightInches(e.target.value)}
-                  min="0"
-                  max="11.5"
-                  step="0.5"
-                  disabled={saving}
-                />
-                <span>in</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Starting Weight & Current Weight */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" htmlFor="edit-starting-weight">
-                Starting Weight (kg)
-              </label>
-              <input
-                id="edit-starting-weight"
-                type="number"
-                className="form-input"
-                value={startingWeight}
-                onChange={(e) => setStartingWeight(e.target.value)}
-                step="0.1"
-                disabled={saving}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="edit-current-weight">
-                Current Weight (kg)
-              </label>
-              <input
-                id="edit-current-weight"
-                type="number"
-                className="form-input"
-                value={currentWeight}
-                onChange={(e) => setCurrentWeight(e.target.value)}
-                step="0.1"
-                disabled={saving}
-              />
-            </div>
-          </div>
-
-          {/* Goal */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="edit-goal">
-              Goal
-            </label>
-            <select
-              id="edit-goal"
-              className="form-select"
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              disabled={saving}
-            >
-              <option value="fat_loss">🔥 Fat Loss</option>
-              <option value="muscle_gain">💪 Muscle Gain</option>
-            </select>
-          </div>
-
-          {/* Actions */}
           <div className="form-actions">
             <button
               type="submit"
-              className="btn btn-success"
+              className="btn btn-primary"
               disabled={saving}
               id="save-client-btn"
             >
-              {saving ? 'Saving...' : '💾 Save Changes'}
+              {saving ? <span className="btn-spinner" aria-hidden="true" /> : <Save size={18} aria-hidden="true" />}
+              {saving ? 'Saving...' : 'Save Changes'}
             </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => navigate(`/admin/clients/${id}`)}
-              disabled={saving}
-            >
+            <Link to={`/admin/clients/${id}`} className="btn btn-ghost">
               Cancel
-            </button>
+            </Link>
           </div>
         </form>
       </div>
 
-      {/* Toast */}
-      {toast && (
-        <div className="toast">
-          ✅ {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </div>
   )
 }

@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { KeyRound, Eye, EyeOff, TriangleAlert, CircleCheck, ShieldCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import PageHeader from '../components/PageHeader'
 
 const MIN_LENGTH = 8
 
@@ -10,6 +12,7 @@ const MIN_LENGTH = 8
 export default function ChangePassword() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
@@ -49,42 +52,65 @@ export default function ChangePassword() {
 
   return (
     <div>
-      <div className="page-header">
-        <h2>Change Password</h2>
-        <p>Choose a new password for your account</p>
-      </div>
+      <PageHeader title="Change password" subtitle="Choose a new password for your account" />
 
-      <div className="card" style={{ maxWidth: '500px' }}>
-        {error && <div className="login-error">⚠️ {error}</div>}
+      <div className="card" style={{ maxWidth: '520px' }}>
+        <div className="card-header">
+          <span className="card-title">
+            <ShieldCheck size={20} aria-hidden="true" />
+            New password
+          </span>
+        </div>
+
+        {error && (
+          <div className="alert alert-error" role="alert">
+            <TriangleAlert size={18} aria-hidden="true" />
+            <span>{error}</span>
+          </div>
+        )}
         {done && (
-          <div className="login-error" style={{ borderColor: 'var(--color-green)', color: 'var(--color-green)' }}>
-            ✅ Password changed. Use it the next time you log in.
+          <div className="alert alert-success" role="status">
+            <CircleCheck size={18} aria-hidden="true" />
+            <span>Password changed. Use it the next time you log in.</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label" htmlFor="new-password">
-              New Password
+              New password
             </label>
-            <input
-              id="new-password"
-              type="password"
-              className="form-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-              disabled={saving}
-            />
+            <div className="input-wrap">
+              <input
+                id="new-password"
+                type={showPassword ? 'text' : 'password'}
+                className="form-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                disabled={saving}
+                aria-describedby="new-password-hint"
+              />
+              <button
+                type="button"
+                className="icon-btn input-action"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label={showPassword ? 'Hide passwords' : 'Show passwords'}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+              </button>
+            </div>
+            <span className="form-hint" id="new-password-hint">At least {MIN_LENGTH} characters</span>
           </div>
 
           <div className="form-group">
             <label className="form-label" htmlFor="confirm-password">
-              Confirm New Password
+              Confirm new password
             </label>
             <input
               id="confirm-password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               className="form-input"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
@@ -95,7 +121,8 @@ export default function ChangePassword() {
 
           <div className="form-actions">
             <button type="submit" className="btn btn-primary" disabled={saving} id="change-password-btn">
-              {saving ? 'Saving...' : '🔑 Change Password'}
+              {saving ? <span className="btn-spinner" aria-hidden="true" /> : <KeyRound size={18} aria-hidden="true" />}
+              {saving ? 'Saving...' : 'Change Password'}
             </button>
           </div>
         </form>

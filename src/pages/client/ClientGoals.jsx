@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react'
+import { Target } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { formatDate, getGoalStatus, groupGoalsByStatus } from '../../utils/calculations'
+import { getGoalStatus, groupGoalsByStatus } from '../../utils/calculations'
 import ProgressPhotos from '../../components/ProgressPhotos'
+import PageHeader from '../../components/PageHeader'
+import GoalCard from '../../components/GoalCard'
+import EmptyState from '../../components/EmptyState'
+import Loading from '../../components/Loading'
 
 export default function ClientGoals() {
   const { user } = useAuth()
@@ -95,7 +100,7 @@ export default function ClientGoals() {
     return { percent: progressPercent, current, badges }
   }
 
-  if (loading) return <div className="loading-container"><div className="spinner"></div></div>
+  if (loading) return <Loading />
 
   const goalSections = groupGoalsByStatus(
     goals.map((goal) => {
@@ -106,90 +111,48 @@ export default function ClientGoals() {
 
   return (
     <div>
-      <div className="page-header">
-        <h2>My Goals & Progress</h2>
-        <p>Track your target metrics and upload progress photos</p>
-      </div>
+      <PageHeader
+        title="My goals"
+        subtitle="Your targets, milestones and progress photos"
+      />
 
-      {goals.length === 0 ? (
-        <div className="empty-state">
-           <div className="empty-icon">🎯</div>
-           <h3>No goals assigned yet</h3>
-           <p>Your trainer will set your monthly goals.</p>
-        </div>
-      ) : (
-        goalSections.map((section) => (
-          <div key={section.status} style={{ marginBottom: '2rem' }}>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-white)', marginBottom: '1rem' }}>
-              {section.title} ({section.items.length})
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
-              {section.items.map(({ goal, percent, current, badges, status }) => {
-                return (
-                  <div className="card" key={goal.id} style={{ padding: '1.5rem' }}>
-                    <div style={{ marginBottom: '1rem' }}>
-                      <h4 style={{ color: 'var(--color-yellow)', margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>
-                        {goal.target_metric} Goal
-                      </h4>
-                      <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>
-                        {goal.description}
-                        {goal.deadline && (
-                          <span style={status === 'overdue' ? { color: 'var(--color-red)' } : undefined}>
-                            {` (by ${formatDate(goal.deadline)})`}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
-                      <span>Start: <strong>{goal.starting_value}</strong></span>
-                      <span>Current: <strong>{current}</strong></span>
-                      <span>Target: <strong>{goal.target_value}</strong></span>
-                    </div>
-
-                    <div className="progress-container">
-                      <div className="progress-bar-bg" style={{ height: '14px' }}>
-                        <div
-                          className="progress-bar-fill"
-                          style={{
-                            width: `${percent}%`,
-                            background: percent === 100 
-                              ? 'linear-gradient(90deg, var(--color-green), #84cc16)' 
-                              : 'linear-gradient(90deg, var(--color-orange), var(--color-yellow))'
-                          }}
-                        ></div>
-                      </div>
-                      <div style={{ textAlign: 'right', marginTop: '0.25rem', fontSize: '0.8rem', fontWeight: 600 }}>
-                        {percent}% Completed
-                      </div>
-                    </div>
-
-                    {badges.length > 0 && (
-                      <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                        {badges.map((badge, idx) => (
-                          <span key={idx} style={{ 
-                            background: 'rgba(250, 204, 21, 0.15)', 
-                            color: 'var(--color-yellow)', 
-                            padding: '0.25rem 0.75rem', 
-                            borderRadius: '999px',
-                            fontSize: '0.8rem',
-                            fontWeight: 600
-                          }}>
-                            {badge}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ))
+      {goals.length === 0 && (
+        <EmptyState
+          icon={Target}
+          title="No goals assigned yet"
+          text="Your trainer will set your goals. They'll show up here with live progress."
+        />
       )}
 
-      {clientData && <ProgressPhotos clientId={clientData.id} />}
+      {goalSections.map((section) => (
+        <section key={section.status} style={{ marginBottom: '2rem' }}>
+          <div className="section-header">
+            <h2 className="section-title">
+              {section.title}
+              <span className="section-count">{section.items.length}</span>
+            </h2>
+          </div>
+          <div className="goal-list stagger">
+            {section.items.map(({ goal, percent, current, badges, status }) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                title={`${goal.target_metric} goal`}
+                percent={percent}
+                current={current}
+                badges={badges}
+                status={status}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
 
+      {clientData && (
+        <div className="card section">
+          <ProgressPhotos clientId={clientData.id} />
+        </div>
+      )}
     </div>
   )
 }

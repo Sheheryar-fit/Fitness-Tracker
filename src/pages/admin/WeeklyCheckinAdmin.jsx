@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { CalendarCheck, Plus, X, Send, Trash2, Clock, Users, UserPlus } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { formatDate, getLocalDateString } from '../../utils/calculations'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import PageHeader from '../../components/PageHeader'
+import StarRating from '../../components/StarRating'
+import Avatar from '../../components/Avatar'
+import EmptyState from '../../components/EmptyState'
+import Loading from '../../components/Loading'
 
 export default function WeeklyCheckinAdmin() {
   const { user } = useAuth()
@@ -18,6 +25,7 @@ export default function WeeklyCheckinAdmin() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -74,6 +82,7 @@ export default function WeeklyCheckinAdmin() {
         setCheckins((prev) => [data[0], ...prev])
         setNotes('')
         setRating(3)
+        setShowForm(false)
       }
     } catch (err) {
       console.error('Error adding checkin:', err)
@@ -98,141 +107,158 @@ export default function WeeklyCheckinAdmin() {
     }
   }
 
-  // Star renderer
-  const renderStars = (count) => {
-    return '⭐'.repeat(count)
-  }
+  if (loading) return <Loading />
 
-  if (loading) {
-    return <div className="loading-container"><div className="spinner"></div></div>
-  }
+  // The form is always open while there are no check-ins yet
+  const formOpen = showForm || checkins.length === 0
 
   return (
     <div>
-      <div className="page-header">
-        <h2>Weekly Check-ins</h2>
-        <p>Log and review weekly feedback for your clients</p>
-      </div>
-
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <div className="card-header">
-          <span className="card-title">Log a New Check-in</span>
-        </div>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" htmlFor="checkin-client">Client *</label>
-              <select
-                id="checkin-client"
-                className="form-select"
-                value={selectedClientId}
-                onChange={(e) => setSelectedClientId(e.target.value)}
-                required
-                disabled={submitting}
-              >
-                <option value="" disabled>Select a client...</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label" htmlFor="checkin-date">Date</label>
-              <input
-                id="checkin-date"
-                type="date"
-                className="form-input"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                disabled={submitting}
-              />
-            </div>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label" htmlFor="checkin-rating">Rating: {renderStars(rating)}</label>
-            <input
-              id="checkin-rating"
-              type="range"
-              min="1"
-              max="5"
-              step="1"
-              style={{ width: '100%', accentColor: 'var(--color-yellow)' }}
-              value={rating}
-              onChange={(e) => setRating(parseInt(e.target.value))}
-              disabled={submitting}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="checkin-notes">Feedback Notes *</label>
-            <textarea
-              id="checkin-notes"
-              className="form-input"
-              rows="4"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              required
-              disabled={submitting}
-              placeholder="How did the client perform this week? Any adjustments needed?"
-            ></textarea>
-          </div>
-
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary" disabled={submitting || !selectedClientId}>
-              {submitting ? 'Logging...' : '📝 Log Check-in'}
+      <PageHeader
+        title="Weekly check-ins"
+        subtitle="Log and review weekly feedback for your clients"
+        actions={
+          checkins.length > 0 && (
+            <button
+              className={`btn ${formOpen ? 'btn-secondary' : 'btn-primary'}`}
+              onClick={() => setShowForm((open) => !open)}
+              aria-expanded={formOpen}
+              aria-controls="new-checkin-form"
+            >
+              {formOpen ? <X size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
+              {formOpen ? 'Close' : 'Log Check-in'}
             </button>
-          </div>
-        </form>
-      </div>
+          )
+        }
+      />
 
-      <div style={{ marginBottom: '1rem' }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-white)', marginBottom: '1rem' }}>
-          Check-in History
-        </h3>
+      {formOpen && (
+        <div className="card page" id="new-checkin-form" style={{ marginBottom: '2rem' }}>
+          <div className="card-header">
+            <span className="card-title">
+              <CalendarCheck size={20} aria-hidden="true" />
+              Log a check-in
+            </span>
+          </div>
+
+          {clients.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="No clients yet"
+              text="Add a client first, then log their weekly check-ins here."
+              action={
+                <Link to="/admin/clients/add" className="btn btn-primary">
+                  <UserPlus size={18} aria-hidden="true" />
+                  Add Client
+                </Link>
+              }
+            />
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="checkin-client">Client *</label>
+                  <select
+                    id="checkin-client"
+                    className="form-select"
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    required
+                    disabled={submitting}
+                  >
+                    <option value="" disabled>Select a client...</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="checkin-date">Date</label>
+                  <input
+                    id="checkin-date"
+                    type="date"
+                    className="form-input"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    required
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <span className="form-label" id="checkin-rating-label">How was the week?</span>
+                <StarRating value={rating} onChange={setRating} disabled={submitting} />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="checkin-notes">Feedback notes *</label>
+                <textarea
+                  id="checkin-notes"
+                  className="form-input"
+                  rows="4"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  required
+                  disabled={submitting}
+                  placeholder="How did the client perform this week? Any adjustments needed?"
+                ></textarea>
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary" disabled={submitting || !selectedClientId}>
+                  {submitting ? <span className="btn-spinner" aria-hidden="true" /> : <Send size={18} aria-hidden="true" />}
+                  {submitting ? 'Logging...' : 'Log Check-in'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      <section>
+        <div className="section-header">
+          <h2 className="section-title">
+            History
+            <span className="section-count">{checkins.length}</span>
+          </h2>
+        </div>
 
         {checkins.length === 0 ? (
-          <div className="empty-state">
-             <div className="empty-icon">⭐</div>
-             <p>No check-ins recorded yet.</p>
-          </div>
+          <EmptyState icon={CalendarCheck} title="No check-ins yet" text="Check-ins you log appear here, newest first." />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="feed stagger">
             {checkins.map((item) => (
-              <div className="card" key={item.id} style={{ padding: '1.25rem' }}>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', alignItems: 'flex-start' }}>
+              <article className="card feed-item" key={item.id}>
+                <div className="feed-item-head">
+                  <div className="feed-item-meta">
+                    <Avatar name={item.client?.name} size="sm" />
                     <div>
-                      <div style={{ fontWeight: 600, color: 'var(--text-white)' }}>
-                        {item.client?.name || 'Unknown Client'}
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      <div className="feed-item-title">{item.client?.name || 'Unknown client'}</div>
+                      <span className="feed-item-date">
+                        <Clock size={14} aria-hidden="true" />
                         {formatDate(item.date)}
-                      </div>
+                      </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <div style={{ background: 'var(--bg-primary)', padding: '0.35rem 0.75rem', borderRadius: 'var(--radius)', fontSize: '0.9rem' }}>
-                        {renderStars(item.rating)}
-                      </div>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => setDeleteTarget(item.id)}
-                        style={{ color: 'var(--color-red)', padding: '0 0.5rem' }}
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                 </div>
-                 <p style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', margin: 0, fontSize: '0.95rem' }}>
-                   {item.notes}
-                 </p>
-              </div>
+                  </div>
+                  <div className="feed-item-meta">
+                    <StarRating value={item.rating} size={18} />
+                    <button
+                      className="icon-btn danger"
+                      onClick={() => setDeleteTarget(item.id)}
+                      aria-label={`Delete check-in for ${item.client?.name || 'client'}`}
+                    >
+                      <Trash2 size={18} aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+                <p className="feed-item-body">{item.notes}</p>
+              </article>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       <ConfirmDialog
         isOpen={!!deleteTarget}

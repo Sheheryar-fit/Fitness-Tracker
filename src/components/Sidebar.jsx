@@ -1,166 +1,113 @@
+import { useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import {
+  LayoutDashboard,
+  Users,
+  UserPlus,
+  Target,
+  CalendarCheck,
+  House,
+  User,
+  Ruler,
+  NotebookPen,
+  KeyRound,
+  LogOut,
+  Dumbbell,
+  X
+} from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import Avatar from './Avatar'
+
+const ADMIN_LINKS = [
+  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/admin/clients', label: 'Clients', icon: Users, matchChildren: true },
+  { to: '/admin/clients/add', label: 'Add Client', icon: UserPlus },
+  { to: '/admin/goals', label: 'Goal Progress', icon: Target },
+  { to: '/admin/checkins', label: 'Check-ins', icon: CalendarCheck }
+]
+
+const CLIENT_LINKS = [
+  { to: '/client/dashboard', label: 'Dashboard', icon: House },
+  { to: '/client/profile', label: 'My Profile', icon: User },
+  { to: '/client/goals', label: 'My Goals', icon: Target },
+  { to: '/client/measurements', label: 'My Progress', icon: Ruler },
+  { to: '/client/notes', label: 'Coach Notes', icon: NotebookPen },
+  { to: '/client/checkins', label: 'Check-ins', icon: CalendarCheck }
+]
 
 /**
  * Sidebar Component - Persistent left navigation
  * Shows different nav items based on user role (admin/client)
  */
-export default function Sidebar({ isOpen, onClose }) {
+export default function Sidebar({ isOpen, hidden, onClose }) {
   const { user, logout } = useAuth()
   const location = useLocation()
+  const closeButtonRef = useRef(null)
 
-  // Get user initials for avatar
-  const initials = user?.username
-    ? user.username.charAt(0).toUpperCase()
-    : '?'
+  // Opening the mobile menu moves focus into it
+  useEffect(() => {
+    if (isOpen) closeButtonRef.current?.focus()
+  }, [isOpen])
 
-  // Role display text
-  const roleLabel = user?.role === 'admin' ? 'Trainer' : 'Client'
+  const isAdmin = user?.role === 'admin'
+  const links = isAdmin ? ADMIN_LINKS : CLIENT_LINKS
+
+  // "Clients" stays highlighted on a client's detail/edit pages, but not on Add Client
+  function isLinkActive(link, isActive) {
+    if (!link.matchChildren) return isActive
+    return isActive || (
+      location.pathname.startsWith(`${link.to}/`) && location.pathname !== '/admin/clients/add'
+    )
+  }
 
   return (
-    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+    <aside
+      id="app-sidebar"
+      className={`sidebar ${isOpen ? 'open' : ''}`}
+      aria-label="Main navigation"
+      inert={hidden}
+    >
       {/* Logo / Brand */}
       <div className="sidebar-header">
-        <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">🏋🏻</div>
-          <div className="sidebar-logo-text">
-            <h1>Sheheryar Fitness</h1>
-            <span>FitTracker</span>
+        <div className="brand">
+          <span className="brand-mark">
+            <Dumbbell size={22} aria-hidden="true" />
+          </span>
+          <div className="brand-text">
+            <span className="brand-name">Sheheryar Fitness</span>
+            <span className="brand-tagline">FitTracker</span>
           </div>
         </div>
+        <button type="button" className="icon-btn sidebar-close" onClick={onClose} aria-label="Close menu" ref={closeButtonRef}>
+          <X size={20} aria-hidden="true" />
+        </button>
       </div>
 
       {/* Navigation Links */}
       <nav className="sidebar-nav">
         <span className="sidebar-section-label">Menu</span>
-
-        {user?.role === 'admin' ? (
-          <>
-            {/* Admin Navigation */}
+        {links.map((link) => {
+          const Icon = link.icon
+          return (
             <NavLink
-              to="/admin/dashboard"
-              className={({ isActive }) =>
-                `sidebar-nav-link ${isActive ? 'active' : ''}`
-              }
+              key={link.to}
+              to={link.to}
+              end={!link.matchChildren}
+              className={({ isActive }) => `nav-link ${isLinkActive(link, isActive) ? 'active' : ''}`}
             >
-              <span className="nav-icon">📊</span>
-              <span>Dashboard</span>
+              <Icon size={20} aria-hidden="true" />
+              <span>{link.label}</span>
             </NavLink>
+          )
+        })}
 
-            <NavLink
-              to="/admin/clients"
-              className={({ isActive }) =>
-                `sidebar-nav-link ${isActive || location.pathname.startsWith('/admin/clients/') ? 'active' : ''}`
-              }
-            >
-              <span className="nav-icon">👥</span>
-              <span>Clients</span>
-            </NavLink>
-
-            <NavLink
-              to="/admin/clients/add"
-              className={({ isActive }) =>
-                `sidebar-nav-link ${isActive ? 'active' : ''}`
-              }
-            >
-              <span className="nav-icon">➕</span>
-              <span>Add Client</span>
-            </NavLink>
-
-            <NavLink
-              to="/admin/goals"
-              className={({ isActive }) =>
-                `sidebar-nav-link ${isActive ? 'active' : ''}`
-              }
-            >
-              <span className="nav-icon">🎯</span>
-              <span>Goal Progress</span>
-            </NavLink>
-
-            <NavLink
-              to="/admin/checkins"
-              className={({ isActive }) =>
-                `sidebar-nav-link ${isActive ? 'active' : ''}`
-              }
-            >
-              <span className="nav-icon">⭐</span>
-              <span>Check-ins</span>
-            </NavLink>
-          </>
-        ) : (
-          <>
-            {/* Client Navigation */}
-            <NavLink
-              to="/client/dashboard"
-              className={({ isActive }) =>
-                `sidebar-nav-link ${isActive ? 'active' : ''}`
-              }
-            >
-              <span className="nav-icon">🏠</span>
-              <span>Dashboard</span>
-            </NavLink>
-
-            <NavLink
-              to="/client/profile"
-              className={({ isActive }) =>
-                `sidebar-nav-link ${isActive ? 'active' : ''}`
-              }
-            >
-              <span className="nav-icon">👤</span>
-              <span>My Profile</span>
-            </NavLink>
-
-            <NavLink
-              to="/client/goals"
-              className={({ isActive }) =>
-                `sidebar-nav-link ${isActive ? 'active' : ''}`
-              }
-            >
-              <span className="nav-icon">🎯</span>
-              <span>My Goals</span>
-            </NavLink>
-
-            <NavLink
-              to="/client/measurements"
-              className={({ isActive }) =>
-                `sidebar-nav-link ${isActive ? 'active' : ''}`
-              }
-            >
-              <span className="nav-icon">📏</span>
-              <span>My Progress</span>
-            </NavLink>
-
-            <NavLink
-              to="/client/notes"
-              className={({ isActive }) =>
-                `sidebar-nav-link ${isActive ? 'active' : ''}`
-              }
-            >
-              <span className="nav-icon">📝</span>
-              <span>Coach Notes</span>
-            </NavLink>
-
-            <NavLink
-              to="/client/checkins"
-              className={({ isActive }) =>
-                `sidebar-nav-link ${isActive ? 'active' : ''}`
-              }
-            >
-              <span className="nav-icon">⭐</span>
-              <span>Check-ins</span>
-            </NavLink>
-          </>
-        )}
-
-        {/* Both roles */}
+        <span className="sidebar-section-label">Account</span>
         <NavLink
-          to={user?.role === 'admin' ? '/admin/password' : '/client/password'}
-          className={({ isActive }) =>
-            `sidebar-nav-link ${isActive ? 'active' : ''}`
-          }
+          to={isAdmin ? '/admin/password' : '/client/password'}
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           id="change-password-link"
         >
-          <span className="nav-icon">🔑</span>
+          <KeyRound size={20} aria-hidden="true" />
           <span>Change Password</span>
         </NavLink>
       </nav>
@@ -168,14 +115,14 @@ export default function Sidebar({ isOpen, onClose }) {
       {/* Footer - User Info & Logout */}
       <div className="sidebar-footer">
         <div className="sidebar-user">
-          <div className="sidebar-avatar">{initials}</div>
+          <Avatar name={user?.username} />
           <div className="sidebar-user-info">
             <div className="sidebar-user-name">{user?.username}</div>
-            <div className="sidebar-user-role">{roleLabel}</div>
+            <div className="sidebar-user-role">{isAdmin ? 'Trainer' : 'Client'}</div>
           </div>
         </div>
         <button className="logout-btn" onClick={logout} id="logout-button">
-          <span className="nav-icon">🚪</span>
+          <LogOut size={20} aria-hidden="true" />
           <span>Logout</span>
         </button>
       </div>

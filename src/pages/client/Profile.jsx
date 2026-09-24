@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { User, Scale, Calendar, CalendarDays, Ruler, UserX } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -11,6 +12,11 @@ import {
   formatDate,
   formatHeight
 } from '../../utils/calculations'
+import PageHeader from '../../components/PageHeader'
+import Avatar from '../../components/Avatar'
+import GoalBadge from '../../components/GoalBadge'
+import EmptyState from '../../components/EmptyState'
+import Loading from '../../components/Loading'
 
 /**
  * Client Profile Page (Read-Only)
@@ -57,11 +63,15 @@ export default function ClientProfile() {
     fetchData()
   }, [])
 
-  if (loading || !client) {
+  if (loading) return <Loading />
+
+  if (!client) {
     return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-      </div>
+      <EmptyState
+        icon={UserX}
+        title="Profile not found"
+        text="Your trainer hasn't finished setting up your profile yet. Try again later."
+      />
     )
   }
 
@@ -73,56 +83,55 @@ export default function ClientProfile() {
   const daysActive = calcDaysActive(client.join_date)
   const progressBarWidth = Math.min(Math.abs(weightPercent), 100)
 
+  const latestItems = [
+    { key: 'weight', label: 'Weight', unit: 'kg', wide: true },
+    { key: 'chest', label: 'Chest', unit: 'in' },
+    { key: 'waist', label: 'Waist', unit: 'in' },
+    { key: 'arms', label: 'Arms', unit: 'in' },
+    { key: 'thigh', label: 'Thigh', unit: 'in' }
+  ]
+
   return (
     <div>
-      {/* Page Header */}
-      <div className="page-header">
-        <h2>My Profile</h2>
-        <p>Your fitness information and progress overview</p>
-      </div>
+      <PageHeader
+        lead={<Avatar name={client.name} size="lg" />}
+        title={client.name}
+        subtitle={
+          <div className="profile-meta">
+            <GoalBadge goal={client.goal} />
+            <span className="badge">
+              <CalendarDays size={14} aria-hidden="true" />
+              {daysActive} days active
+            </span>
+          </div>
+        }
+      />
 
-      <div className="detail-grid">
+      <div className="grid-2">
         {/* Profile Card (Read-Only) */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Personal Information</span>
-            <span
-              className={`goal-badge ${
-                client.goal === 'fat_loss' ? 'fat-loss' : 'muscle-gain'
-              }`}
-            >
-              {client.goal === 'fat_loss' ? '🔥' : '💪'}{' '}
-              {formatGoal(client.goal)}
+            <span className="card-title">
+              <User size={20} aria-hidden="true" />
+              Personal information
             </span>
           </div>
           <ul className="info-list">
-            <li>
-              <span className="info-label">Name</span>
-              <span className="info-value">{client.name}</span>
-            </li>
             <li>
               <span className="info-label">Age</span>
               <span className="info-value">{client.age || '—'}</span>
             </li>
             <li>
               <span className="info-label">Height</span>
-              <span className="info-value">
-                {formatHeight(client.height)}
-              </span>
+              <span className="info-value">{formatHeight(client.height)}</span>
             </li>
             <li>
               <span className="info-label">Goal</span>
               <span className="info-value">{formatGoal(client.goal)}</span>
             </li>
             <li>
-              <span className="info-label">Join Date</span>
+              <span className="info-label">Joined</span>
               <span className="info-value">{formatDate(client.join_date)}</span>
-            </li>
-            <li>
-              <span className="info-label">Starting Weight</span>
-              <span className="info-value">
-                {client.starting_weight ? `${client.starting_weight} kg` : '—'}
-              </span>
             </li>
           </ul>
         </div>
@@ -130,43 +139,41 @@ export default function ClientProfile() {
         {/* Weight Progress Card */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Weight Progress</span>
+            <span className="card-title">
+              <Scale size={20} aria-hidden="true" />
+              Weight progress
+            </span>
           </div>
 
-          {/* Weight Change */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-              Total Weight Change
-            </div>
-            <div className="weight-change-value" style={{ color: weightColor }}>
-              {weightChange > 0 ? '+' : ''}{weightChange} kg
-            </div>
-            <div style={{ color: weightColor, fontSize: '0.85rem', fontWeight: 600 }}>
-              {weightPercent > 0 ? '+' : ''}{weightPercent}%
-            </div>
+          <div className="stat-label">Total weight change</div>
+          <div className="weight-change-value" style={{ color: weightColor, marginTop: '0.35rem' }}>
+            {weightChange > 0 ? '+' : ''}{weightChange} kg
+          </div>
 
-            <div className="progress-container">
-              <div className="progress-bar-bg">
-                <div
-                  className="progress-bar-fill"
-                  style={{
-                    width: `${progressBarWidth}%`,
-                    background: positive
-                      ? 'linear-gradient(90deg, var(--color-green), #34d399)'
-                      : 'linear-gradient(90deg, var(--color-red), #f87171)'
-                  }}
-                ></div>
-              </div>
+          <div style={{ margin: '1.25rem 0' }}>
+            <div className="progress-track">
+              <div
+                className={`progress-fill ${positive ? 'tone-green' : 'tone-red'}`}
+                style={{ transform: `scaleX(${progressBarWidth / 100})` }}
+              />
+            </div>
+            <div className="progress-meta">
+              <span>Change since joining</span>
+              <strong style={{ color: weightColor }}>
+                {weightPercent > 0 ? '+' : ''}{weightPercent}%
+              </strong>
             </div>
           </div>
 
           <ul className="info-list">
             <li>
-              <span className="info-label">Days Active</span>
-              <span className="info-value">{daysActive} days</span>
+              <span className="info-label">Starting weight</span>
+              <span className="info-value">
+                {client.starting_weight ? `${client.starting_weight} kg` : '—'}
+              </span>
             </li>
             <li>
-              <span className="info-label">Current Weight</span>
+              <span className="info-label">Current weight</span>
               <span className="info-value">
                 {client.current_weight ? `${client.current_weight} kg` : '—'}
               </span>
@@ -175,44 +182,35 @@ export default function ClientProfile() {
         </div>
       </div>
 
-      {/* Latest Measurements Card */}
-      <div className="card" style={{ marginTop: '1.5rem' }}>
-        <div className="card-header">
-          <span className="card-title">Latest Measurements</span>
+      {/* Latest Measurements */}
+      <section className="section">
+        <div className="section-header">
+          <h2 className="section-title">Latest measurements</h2>
           {latestMeasurement && (
-            <span className="card-subtitle">{formatDate(latestMeasurement.date)}</span>
+            <span className="feed-item-date">
+              <Calendar size={14} aria-hidden="true" />
+              {formatDate(latestMeasurement.date)}
+            </span>
           )}
         </div>
 
         {latestMeasurement ? (
-          <div className="measurement-values">
-            <div className="measurement-item measurement-item-wide">
-              <div className="m-label">Weight</div>
-              <div className="m-value">{latestMeasurement.weight ?? '—'} kg</div>
-            </div>
-            <div className="measurement-item">
-              <div className="m-label">Chest</div>
-              <div className="m-value">{latestMeasurement.chest ?? '—'} in</div>
-            </div>
-            <div className="measurement-item">
-              <div className="m-label">Waist</div>
-              <div className="m-value">{latestMeasurement.waist ?? '—'} in</div>
-            </div>
-            <div className="measurement-item">
-              <div className="m-label">Arms</div>
-              <div className="m-value">{latestMeasurement.arms ?? '—'} in</div>
-            </div>
-            <div className="measurement-item">
-              <div className="m-label">Thigh</div>
-              <div className="m-value">{latestMeasurement.thigh ?? '—'} in</div>
+          <div className="measurement-card">
+            <div className="measurement-values stagger">
+              {latestItems.map(({ key, label, unit, wide }) => (
+                <div className={`measurement-item ${wide ? 'measurement-item-wide' : ''}`} key={key}>
+                  <div className="m-label">{label}</div>
+                  <div className="m-value">
+                    {latestMeasurement[key] ?? '—'}<span className="m-unit">{unit}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         ) : (
-          <div className="empty-state" style={{ padding: '1.5rem' }}>
-            <p>No measurements recorded yet</p>
-          </div>
+          <EmptyState icon={Ruler} title="No measurements yet" text="Your trainer will add your measurements." />
         )}
-      </div>
+      </section>
     </div>
   )
 }

@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
+import { CalendarCheck, Calendar } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { formatDate } from '../../utils/calculations'
+import PageHeader from '../../components/PageHeader'
+import StarRating from '../../components/StarRating'
+import EmptyState from '../../components/EmptyState'
+import Loading from '../../components/Loading'
 
 export default function WeeklyCheckinClient() {
   const { user } = useAuth()
@@ -35,43 +40,31 @@ export default function WeeklyCheckinClient() {
     fetchData()
   }, [])
 
-  const renderStars = (count) => {
-    return '⭐'.repeat(count)
-  }
-
-  if (loading) {
-    return <div className="loading-container"><div className="spinner"></div></div>
-  }
+  if (loading) return <Loading />
 
   return (
     <div>
-      <div className="page-header">
-        <h2>Weekly Check-ins</h2>
-        <p>Review your trainer's weekly feedback and ratings</p>
-      </div>
+      <PageHeader title="Weekly check-ins" subtitle="Your trainer's weekly ratings and feedback" />
 
       {checkins.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">⭐</div>
-          <h3>No Check-ins yet</h3>
-          <p>Your trainer will log your weekly feedback here.</p>
-        </div>
+        <EmptyState
+          icon={CalendarCheck}
+          title="No check-ins yet"
+          text="Your trainer will log your weekly feedback here."
+        />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="feed stagger">
           {checkins.map((item) => (
-            <div className="card" key={item.id}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--color-yellow)', fontWeight: 600 }}>
-                  📅 {formatDate(item.date)}
+            <article className="card feed-item" key={item.id}>
+              <div className="feed-item-head">
+                <span className="measurement-date-label">
+                  <Calendar size={16} aria-hidden="true" />
+                  {formatDate(item.date)}
                 </span>
-                <span style={{ background: 'var(--bg-primary)', padding: '0.35rem 0.75rem', borderRadius: 'var(--radius)' }}>
-                  {renderStars(item.rating)}
-                </span>
+                <StarRating value={item.rating} size={18} />
               </div>
-              <p style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', margin: 0 }}>
-                {item.notes}
-              </p>
-            </div>
+              <p className="feed-item-body">{item.notes}</p>
+            </article>
           ))}
         </div>
       )}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
+import { UserPlus, Copy, Check, CircleCheck, TriangleAlert, Users } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -8,6 +9,8 @@ import {
   getLocalDateString,
   toTotalInches
 } from '../../utils/calculations'
+import PageHeader from '../../components/PageHeader'
+import ClientFormFields from '../../components/ClientFormFields'
 
 /**
  * Add Client Page (Admin)
@@ -30,6 +33,7 @@ export default function AddClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [credentials, setCredentials] = useState(null) // { username, password }
+  const [copied, setCopied] = useState(false)
 
   // Handle form submission
   async function handleSubmit(e) {
@@ -87,49 +91,63 @@ export default function AddClient() {
     }
   }
 
-  // If credentials are shown, display success modal
+  async function copyCredentials() {
+    try {
+      await navigator.clipboard.writeText(
+        `Username: ${credentials.username}\nPassword: ${credentials.password}`
+      )
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Could not copy:', err)
+    }
+  }
+
+  // Client created: show the generated login details
   if (credentials) {
     return (
       <div>
-        <div className="page-header">
-          <h2>Client Created! ✅</h2>
-          <p>Share these login credentials with your client</p>
-        </div>
+        <PageHeader
+          back={{ to: '/admin/clients', label: 'Clients' }}
+          title="Client created"
+          subtitle="Share these login details with your client"
+        />
 
-        <div className="card" style={{ maxWidth: '500px' }}>
-          <h3 className="card-title">Login Credentials for {name}</h3>
-          <p className="card-subtitle">
-            Save these — the password cannot be retrieved later
-          </p>
+        <div className="card" style={{ maxWidth: '520px' }}>
+          <div className="card-header">
+            <span className="card-title">
+              <CircleCheck size={22} aria-hidden="true" style={{ color: 'var(--success)' }} />
+              Login for {name}
+            </span>
+          </div>
 
           <div className="credentials-box">
             <div className="credentials-row">
-              <span className="cred-label">Username:</span>
+              <span className="cred-label">Username</span>
               <span className="cred-value">{credentials.username}</span>
             </div>
             <div className="credentials-row">
-              <span className="cred-label">Password:</span>
+              <span className="cred-label">Password</span>
               <span className="cred-value">{credentials.password}</span>
             </div>
           </div>
 
+          <p className="form-hint" style={{ marginBottom: '1.25rem' }}>
+            Save these now. The password can't be shown again, but you can reset it later from the
+            client's page.
+          </p>
+
           <div className="form-actions">
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                navigator.clipboard.writeText(
-                  `Username: ${credentials.username}\nPassword: ${credentials.password}`
-                )
-              }}
-              id="copy-credentials-btn"
-            >
-              📋 Copy Credentials
+            <button className="btn btn-primary" onClick={copyCredentials} id="copy-credentials-btn">
+              {copied ? <Check size={18} aria-hidden="true" /> : <Copy size={18} aria-hidden="true" />}
+              {copied ? 'Copied' : 'Copy Credentials'}
             </button>
             <button
-              className="btn btn-ghost"
+              className="btn btn-secondary"
               onClick={() => navigate('/admin/clients')}
               id="go-to-clients-btn"
             >
+              <Users size={18} aria-hidden="true" />
               Go to Clients
             </button>
           </div>
@@ -140,141 +158,33 @@ export default function AddClient() {
 
   return (
     <div>
-      {/* Page Header */}
-      <div className="page-header">
-        <h2>Add New Client</h2>
-        <p>Register a new gym client and generate their login credentials</p>
-      </div>
+      <PageHeader
+        back={{ to: '/admin/clients', label: 'Clients' }}
+        title="Add new client"
+        subtitle="Their username and password are created automatically"
+      />
 
-      {/* Form */}
-      <div className="card" style={{ maxWidth: '600px' }}>
-        {error && <div className="login-error">⚠️ {error}</div>}
+      <div className="card" style={{ maxWidth: '680px' }}>
+        {error && (
+          <div className="alert alert-error" role="alert">
+            <TriangleAlert size={18} aria-hidden="true" />
+            <span>{error}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
-          {/* Name */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="client-name">
-              Full Name *
-            </label>
-            <input
-              id="client-name"
-              type="text"
-              className="form-input"
-              placeholder="e.g. John Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={loading}
-              required
-            />
-          </div>
+          <ClientFormFields
+            idPrefix="client"
+            disabled={loading}
+            name={name} setName={setName}
+            age={age} setAge={setAge}
+            heightFeet={heightFeet} setHeightFeet={setHeightFeet}
+            heightInches={heightInches} setHeightInches={setHeightInches}
+            startingWeight={startingWeight} setStartingWeight={setStartingWeight}
+            currentWeight={currentWeight} setCurrentWeight={setCurrentWeight}
+            goal={goal} setGoal={setGoal}
+          />
 
-          {/* Age & Height */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" htmlFor="client-age">
-                Age
-              </label>
-              <input
-                id="client-age"
-                type="number"
-                className="form-input"
-                placeholder="e.g. 25"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-                min="10"
-                max="100"
-                disabled={loading}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="client-height-ft">
-                Height
-              </label>
-              <div className="height-inputs">
-                <input
-                  id="client-height-ft"
-                  type="number"
-                  className="form-input"
-                  placeholder="e.g. 5"
-                  aria-label="Height feet"
-                  value={heightFeet}
-                  onChange={(e) => setHeightFeet(e.target.value)}
-                  min="0"
-                  max="8"
-                  step="1"
-                  disabled={loading}
-                />
-                <span>ft</span>
-                <input
-                  id="client-height-in"
-                  type="number"
-                  className="form-input"
-                  placeholder="e.g. 7"
-                  aria-label="Height inches"
-                  value={heightInches}
-                  onChange={(e) => setHeightInches(e.target.value)}
-                  min="0"
-                  max="11.5"
-                  step="0.5"
-                  disabled={loading}
-                />
-                <span>in</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Starting Weight & Current Weight */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" htmlFor="client-starting-weight">
-                Starting Weight (kg)
-              </label>
-              <input
-                id="client-starting-weight"
-                type="number"
-                className="form-input"
-                placeholder="e.g. 80"
-                value={startingWeight}
-                onChange={(e) => setStartingWeight(e.target.value)}
-                step="0.1"
-                disabled={loading}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="client-current-weight">
-                Current Weight (kg)
-              </label>
-              <input
-                id="client-current-weight"
-                type="number"
-                className="form-input"
-                placeholder="e.g. 78"
-                value={currentWeight}
-                onChange={(e) => setCurrentWeight(e.target.value)}
-                step="0.1"
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          {/* Goal */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="client-goal">
-              Goal
-            </label>
-            <select
-              id="client-goal"
-              className="form-select"
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              disabled={loading}
-            >
-              <option value="fat_loss">🔥 Fat Loss</option>
-              <option value="muscle_gain">💪 Muscle Gain</option>
-            </select>
-          </div>
-
-          {/* Actions */}
           <div className="form-actions">
             <button
               type="submit"
@@ -282,16 +192,12 @@ export default function AddClient() {
               disabled={loading}
               id="submit-client-btn"
             >
-              {loading ? 'Creating...' : '➕ Add Client'}
+              {loading ? <span className="btn-spinner" aria-hidden="true" /> : <UserPlus size={18} aria-hidden="true" />}
+              {loading ? 'Creating...' : 'Add Client'}
             </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => navigate('/admin/clients')}
-              disabled={loading}
-            >
+            <Link to="/admin/clients" className="btn btn-ghost" aria-disabled={loading}>
               Cancel
-            </button>
+            </Link>
           </div>
         </form>
       </div>

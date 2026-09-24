@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { Camera, Upload, Trash2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ConfirmDialog from './ConfirmDialog'
+import Loading from './Loading'
 import { formatDate, getLocalDateString } from '../utils/calculations'
 import { resizePhoto } from '../utils/image'
 import { removePhotoFiles, signedPhotoUrls } from '../lib/photoStorage'
@@ -13,11 +15,23 @@ export default function ProgressPhotos({ clientId }) {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [fullscreenPhoto, setFullscreenPhoto] = useState(null)
+  const [fullscreenPhoto, setFullscreenPhoto] = useState(null) // { url, date }
+  const closeRef = useRef(null)
 
   useEffect(() => {
     fetchPhotos()
   }, [clientId])
+
+  // Full-screen photo: Escape closes it, focus goes to the close button
+  useEffect(() => {
+    if (!fullscreenPhoto) return
+    closeRef.current?.focus()
+    function handleKey(e) {
+      if (e.key === 'Escape') setFullscreenPhoto(null)
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [fullscreenPhoto])
 
   async function fetchPhotos() {
     try {
@@ -113,66 +127,71 @@ export default function ProgressPhotos({ clientId }) {
     }
   }
 
-  if (loading) return <div className="spinner"></div>
+  if (loading) return <Loading inline />
 
   return (
-    <div style={{ marginTop: '2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-white)' }}>
-          Progress Photos
+    <div className="photos-block">
+      <div className="section-header">
+        <h3 className="card-title">
+          <Camera size={20} aria-hidden="true" />
+          Progress photos
+          <span className="section-count">{photos.length}</span>
         </h3>
-        
+
         <div>
           <input
             type="file"
             id={`photo-upload-${clientId}`}
             accept="image/*"
-            style={{ display: 'none' }}
+            className="sr-only"
             onChange={handleFileUpload}
             disabled={uploading}
           />
-          <label htmlFor={`photo-upload-${clientId}`} className="btn btn-primary" style={{ cursor: 'pointer' }}>
-            {uploading ? 'Uploading...' : '📸 Upload Photo'}
+          <label
+            htmlFor={`photo-upload-${clientId}`}
+            className={`btn btn-secondary btn-sm ${uploading ? 'is-busy' : ''}`}
+            aria-disabled={uploading}
+          >
+            {uploading ? <span className="btn-spinner" aria-hidden="true" /> : <Upload size={16} aria-hidden="true" />}
+            {uploading ? 'Uploading...' : 'Upload Photo'}
           </label>
         </div>
       </div>
 
       {photos.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">📷</div>
+        <div className="empty-state" style={{ padding: '1.5rem' }}>
           <p>No progress photos uploaded yet.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem' }}>
+        <div className="photo-grid stagger">
           {photos.map((photo) => (
-            <div key={photo.id} className="card" style={{ padding: '0.5rem', position: 'relative' }}>
+            <div key={photo.id} className="photo-tile">
               {signedUrls[photo.photo_url] ? (
-                <img
-                  src={signedUrls[photo.photo_url]}
-                  alt={`Progress on ${photo.date}`}
-                  loading="lazy"
-                  decoding="async"
-                  style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: 'calc(var(--radius) - 2px)', cursor: 'pointer' }}
-                  onClick={() => setFullscreenPhoto(signedUrls[photo.photo_url])}
-                />
-              ) : (
-                <div
-                  style={{ height: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}
+                <button
+                  type="button"
+                  className="photo-open"
+                  onClick={() => setFullscreenPhoto({ url: signedUrls[photo.photo_url], date: photo.date })}
+                  aria-label={`Open progress photo from ${formatDate(photo.date)}`}
                 >
-                  Photo unavailable
-                </div>
+                  <img
+                    src={signedUrls[photo.photo_url]}
+                    alt={`Progress on ${formatDate(photo.date)}`}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </button>
+              ) : (
+                <div className="photo-unavailable">Photo unavailable</div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', padding: '0 0.25rem' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  {formatDate(photo.date)}
-                </span>
+              <div className="photo-caption">
+                <span>{formatDate(photo.date)}</span>
                 {(user.role === 'admin' || user.id === photo.uploader_id) && (
                   <button
-                    className="btn btn-ghost btn-sm"
+                    className="icon-btn"
                     onClick={() => setDeleteTarget(photo.id)}
-                    style={{ color: 'var(--color-red)', padding: '0.1rem 0.3rem', fontSize: '0.8rem' }}
+                    aria-label={`Delete photo from ${formatDate(photo.date)}`}
                   >
-                    🗑️
+                    <Trash2 size={16} aria-hidden="true" />
                   </button>
                 )}
               </div>
@@ -190,35 +209,26 @@ export default function ProgressPhotos({ clientId }) {
       />
 
       {fullscreenPhoto && (
-        <div 
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(5, 5, 5, 0.95)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'zoom-out',
-            animation: 'fadeIn 0.2s ease-out'
-          }}
+        <div
+          className="lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Progress photo from ${formatDate(fullscreenPhoto.date)}`}
           onClick={() => setFullscreenPhoto(null)}
         >
-          <img 
-            src={fullscreenPhoto} 
-            alt="Fullscreen view" 
-            style={{
-              maxHeight: '90vh',
-              maxWidth: '90vw',
-              objectFit: 'contain',
-              borderRadius: 'var(--radius)',
-              boxShadow: '0 0 40px rgba(250, 204, 21, 0.15)',
-              animation: 'scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-            }}
+          <button
+            type="button"
+            className="icon-btn lightbox-close"
+            onClick={() => setFullscreenPhoto(null)}
+            aria-label="Close photo"
+            ref={closeRef}
+          >
+            <X size={22} aria-hidden="true" />
+          </button>
+          <img
+            src={fullscreenPhoto.url}
+            alt={`Progress on ${formatDate(fullscreenPhoto.date)}`}
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
       )}

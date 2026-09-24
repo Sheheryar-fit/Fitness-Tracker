@@ -1,5 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import {
+  KeyRound,
+  Pencil,
+  Scale,
+  TrendingDown,
+  TrendingUp,
+  CalendarDays,
+  Ruler,
+  Plus,
+  User,
+  Copy,
+  X
+} from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -8,15 +21,20 @@ import {
   getWeightColor,
   isPositiveProgress,
   calcDaysActive,
-  calcMeasurementChange,
-  getMeasurementColor,
-  formatGoal,
   formatDate,
   formatHeight,
   generatePassword,
   getLocalDateString
 } from '../../utils/calculations'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import PageHeader from '../../components/PageHeader'
+import StatCard from '../../components/StatCard'
+import Avatar from '../../components/Avatar'
+import GoalBadge from '../../components/GoalBadge'
+import EmptyState from '../../components/EmptyState'
+import MeasurementCard from '../../components/MeasurementCard'
+import Loading from '../../components/Loading'
+import Toast from '../../components/Toast'
 import AdminCoachNotes from './AdminCoachNotes'
 
 /**
@@ -248,13 +266,7 @@ export default function ClientDetail() {
     toastTimer.current = setTimeout(() => setToast(''), 3000)
   }
 
-  if (loading || !client) {
-    return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-      </div>
-    )
-  }
+  if (loading || !client) return <Loading />
 
   // Calculate progress values
   const weightChange = calcWeightChange(client.current_weight, client.starting_weight)
@@ -268,60 +280,220 @@ export default function ClientDetail() {
 
   return (
     <div>
-      {/* Page Header */}
-      <div className="page-header page-header-actions">
-        <div>
-          <h2>{client.name}</h2>
-          <p>Client details and progress tracking</p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
-            className="btn btn-ghost"
-            onClick={() => navigate('/admin/clients')}
-          >
-            ← Back
-          </button>
-          <button
-            className="btn btn-ghost"
-            onClick={() => setShowResetConfirm(true)}
-            disabled={resetting}
-            id="reset-password-btn"
-          >
-            {resetting ? '...' : '🔑 Reset Password'}
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => navigate(`/admin/clients/${id}/edit`)}
-            id="edit-client-btn"
-          >
-            ✏️ Edit
-          </button>
-        </div>
+      <PageHeader
+        back={{ to: '/admin/clients', label: 'Clients' }}
+        lead={<Avatar name={client.name} size="lg" />}
+        title={client.name}
+        subtitle={
+          <div className="profile-meta">
+            <GoalBadge goal={client.goal} />
+            {clientUsername && (
+              <span className="badge">
+                <User size={14} aria-hidden="true" />
+                <span className="mono">{clientUsername}</span>
+              </span>
+            )}
+          </div>
+        }
+        actions={
+          <>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setShowResetConfirm(true)}
+              disabled={resetting}
+              id="reset-password-btn"
+            >
+              {resetting ? <span className="btn-spinner" aria-hidden="true" /> : <KeyRound size={18} aria-hidden="true" />}
+              Reset Password
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate(`/admin/clients/${id}/edit`)}
+              id="edit-client-btn"
+            >
+              <Pencil size={18} aria-hidden="true" />
+              Edit
+            </button>
+          </>
+        }
+      />
+
+      {/* Key numbers */}
+      <div className="stat-grid stagger">
+        <StatCard
+          icon={Scale}
+          label="Current weight"
+          value={client.current_weight != null ? <>{client.current_weight}<small>kg</small></> : '—'}
+          hint={client.starting_weight != null ? `Started at ${client.starting_weight} kg` : null}
+        />
+        <StatCard
+          icon={positive ? TrendingDown : TrendingUp}
+          tone={positive ? 'green' : 'red'}
+          label="Total change"
+          value={<>{weightChange > 0 ? '+' : ''}{weightChange}<small>kg</small></>}
+          valueStyle={{ color: weightColor }}
+          hint={`${weightPercent > 0 ? '+' : ''}${weightPercent}% since joining`}
+        />
+        <StatCard
+          icon={CalendarDays}
+          tone="blue"
+          label="Days active"
+          value={daysActive}
+          hint={`Joined ${formatDate(client.join_date)}`}
+        />
+        <StatCard
+          icon={Ruler}
+          tone="orange"
+          label="Measurements"
+          value={measurements.length}
+          hint={latestMeasurement ? `Last on ${formatDate(latestMeasurement.date)}` : 'None yet'}
+        />
       </div>
 
-      {/* Side-by-Side: Client Info + Progress */}
-      <div className="detail-grid">
-        {/* Left - Client Info Card */}
+      <div className="grid-2 section">
+        {/* Add Measurement */}
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Client Information</span>
-            <span
-              className={`goal-badge ${
-                client.goal === 'fat_loss' ? 'fat-loss' : 'muscle-gain'
-              }`}
-            >
-              {client.goal === 'fat_loss' ? '🔥' : '💪'}{' '}
-              {formatGoal(client.goal)}
+            <span className="card-title">
+              <Plus size={20} aria-hidden="true" />
+              Add measurement
+            </span>
+          </div>
+
+          <form onSubmit={handleAddMeasurement}>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label" htmlFor="m-date">
+                  Date
+                </label>
+                <input
+                  id="m-date"
+                  type="date"
+                  className="form-input"
+                  value={mDate}
+                  onChange={(e) => setMDate(e.target.value)}
+                  disabled={submitting}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="m-weight">
+                  Weight (kg)
+                </label>
+                <input
+                  id="m-weight"
+                  type="number"
+                  inputMode="decimal"
+                  className="form-input"
+                  placeholder="e.g. 78.5"
+                  value={mWeight}
+                  onChange={(e) => setMWeight(e.target.value)}
+                  step="0.1"
+                  disabled={submitting}
+                />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label" htmlFor="m-chest">
+                  Chest (in)
+                </label>
+                <input
+                  id="m-chest"
+                  type="number"
+                  inputMode="decimal"
+                  className="form-input"
+                  placeholder="e.g. 40"
+                  value={mChest}
+                  onChange={(e) => setMChest(e.target.value)}
+                  step="0.1"
+                  disabled={submitting}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="m-waist">
+                  Waist (in)
+                </label>
+                <input
+                  id="m-waist"
+                  type="number"
+                  inputMode="decimal"
+                  className="form-input"
+                  placeholder="e.g. 34"
+                  value={mWaist}
+                  onChange={(e) => setMWaist(e.target.value)}
+                  step="0.1"
+                  disabled={submitting}
+                />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label" htmlFor="m-arms">
+                  Arms (in)
+                </label>
+                <input
+                  id="m-arms"
+                  type="number"
+                  inputMode="decimal"
+                  className="form-input"
+                  placeholder="e.g. 15"
+                  value={mArms}
+                  onChange={(e) => setMArms(e.target.value)}
+                  step="0.1"
+                  disabled={submitting}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="m-thigh">
+                  Thigh (in)
+                </label>
+                <input
+                  id="m-thigh"
+                  type="number"
+                  inputMode="decimal"
+                  className="form-input"
+                  placeholder="e.g. 22"
+                  value={mThigh}
+                  onChange={(e) => setMThigh(e.target.value)}
+                  step="0.1"
+                  disabled={submitting}
+                />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={submitting}
+                id="add-measurement-btn"
+              >
+                {submitting ? <span className="btn-spinner" aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
+                {submitting ? 'Adding...' : 'Add Measurement'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={clearMeasurementForm}
+                disabled={submitting}
+              >
+                Clear
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Client Information */}
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">
+              <User size={20} aria-hidden="true" />
+              Client information
             </span>
           </div>
           <ul className="info-list">
             <li>
-              <span className="info-label">Name</span>
-              <span className="info-value">{client.name}</span>
-            </li>
-            <li>
               <span className="info-label">Username</span>
-              <span className="info-value" style={{ color: 'var(--color-orange)', fontFamily: 'monospace' }}>
+              <span className="info-value mono" style={{ color: 'var(--accent)' }}>
                 {clientUsername || '—'}
               </span>
             </li>
@@ -331,308 +503,75 @@ export default function ClientDetail() {
             </li>
             <li>
               <span className="info-label">Height</span>
-              <span className="info-value">
-                {formatHeight(client.height)}
-              </span>
+              <span className="info-value">{formatHeight(client.height)}</span>
             </li>
             <li>
-              <span className="info-label">Join Date</span>
+              <span className="info-label">Joined</span>
               <span className="info-value">{formatDate(client.join_date)}</span>
             </li>
             <li>
-              <span className="info-label">Starting Weight</span>
+              <span className="info-label">Starting weight</span>
               <span className="info-value">
                 {client.starting_weight ? `${client.starting_weight} kg` : '—'}
               </span>
             </li>
             <li>
-              <span className="info-label">Current Weight</span>
+              <span className="info-label">Current weight</span>
               <span className="info-value">
                 {client.current_weight ? `${client.current_weight} kg` : '—'}
               </span>
             </li>
           </ul>
+
+          <div style={{ marginTop: '1.25rem' }}>
+            <div className="progress-track">
+              <div
+                className={`progress-fill ${positive ? 'tone-green' : 'tone-red'}`}
+                style={{ transform: `scaleX(${progressBarWidth / 100})` }}
+              />
+            </div>
+            <div className="progress-meta">
+              <span>Weight change</span>
+              <strong style={{ color: weightColor }}>
+                {weightPercent > 0 ? '+' : ''}{weightPercent}%
+              </strong>
+            </div>
+          </div>
         </div>
-
-        {/* Right - Progress Summary Card */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">Progress Summary</span>
-          </div>
-
-          {/* Weight Change */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-              Total Weight Change
-            </div>
-            <div className="weight-change-value" style={{ color: weightColor }}>
-              {weightChange > 0 ? '+' : ''}{weightChange} kg
-            </div>
-            <div style={{ color: weightColor, fontSize: '0.85rem', fontWeight: 600 }}>
-              {weightPercent > 0 ? '+' : ''}{weightPercent}%
-            </div>
-
-            {/* Progress Bar */}
-            <div className="progress-container">
-              <div className="progress-bar-bg">
-                <div
-                  className="progress-bar-fill"
-                  style={{
-                    width: `${progressBarWidth}%`,
-                    background: positive
-                      ? 'linear-gradient(90deg, var(--color-green), #34d399)'
-                      : 'linear-gradient(90deg, var(--color-red), #f87171)'
-                  }}
-                ></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Days Active */}
-          <ul className="info-list">
-            <li>
-              <span className="info-label">Days Active</span>
-              <span className="info-value">{daysActive} days</span>
-            </li>
-            <li>
-              <span className="info-label">Latest Measurement</span>
-              <span className="info-value">
-                {latestMeasurement ? formatDate(latestMeasurement.date) : 'No data'}
-              </span>
-            </li>
-            <li>
-              <span className="info-label">Total Measurements</span>
-              <span className="info-value">{measurements.length}</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      {/* Bottom Section - Add Measurement Form */}
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <div className="card-header">
-          <span className="card-title">Add Measurement</span>
-        </div>
-
-        <form onSubmit={handleAddMeasurement}>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" htmlFor="m-date">
-                Date
-              </label>
-              <input
-                id="m-date"
-                type="date"
-                className="form-input"
-                value={mDate}
-                onChange={(e) => setMDate(e.target.value)}
-                disabled={submitting}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="m-weight">
-                Weight (kg)
-              </label>
-              <input
-                id="m-weight"
-                type="number"
-                className="form-input"
-                placeholder="e.g. 78.5"
-                value={mWeight}
-                onChange={(e) => setMWeight(e.target.value)}
-                step="0.1"
-                disabled={submitting}
-              />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" htmlFor="m-chest">
-                Chest (in)
-              </label>
-              <input
-                id="m-chest"
-                type="number"
-                className="form-input"
-                placeholder="e.g. 40"
-                value={mChest}
-                onChange={(e) => setMChest(e.target.value)}
-                step="0.1"
-                disabled={submitting}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="m-waist">
-                Waist (in)
-              </label>
-              <input
-                id="m-waist"
-                type="number"
-                className="form-input"
-                placeholder="e.g. 34"
-                value={mWaist}
-                onChange={(e) => setMWaist(e.target.value)}
-                step="0.1"
-                disabled={submitting}
-              />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" htmlFor="m-arms">
-                Arms (in)
-              </label>
-              <input
-                id="m-arms"
-                type="number"
-                className="form-input"
-                placeholder="e.g. 15"
-                value={mArms}
-                onChange={(e) => setMArms(e.target.value)}
-                step="0.1"
-                disabled={submitting}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="m-thigh">
-                Thigh (in)
-              </label>
-              <input
-                id="m-thigh"
-                type="number"
-                className="form-input"
-                placeholder="e.g. 22"
-                value={mThigh}
-                onChange={(e) => setMThigh(e.target.value)}
-                step="0.1"
-                disabled={submitting}
-              />
-            </div>
-          </div>
-          <div className="form-actions" style={{ marginTop: '0.5rem' }}>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={submitting}
-              id="add-measurement-btn"
-            >
-              {submitting ? 'Adding...' : '📏 Add'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={clearMeasurementForm}
-              disabled={submitting}
-            >
-              Clear
-            </button>
-          </div>
-        </form>
       </div>
 
       {/* Measurement History */}
-      <div style={{ marginBottom: '1rem' }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-white)', marginBottom: '1rem' }}>
-          Measurement History
-        </h3>
+      <section className="section">
+        <div className="section-header">
+          <h2 className="section-title">
+            Measurement history
+            <span className="section-count">{measurements.length}</span>
+          </h2>
+        </div>
 
         {measurements.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">📏</div>
-            <h3>No measurements yet</h3>
-            <p>Add the first measurement using the form above</p>
-          </div>
+          <EmptyState
+            icon={Ruler}
+            title="No measurements yet"
+            text="Add the first measurement using the form above."
+          />
         ) : (
-          measurements.map((m, index) => {
-            // Previous measurement is the next in the array (since sorted newest first)
-            const prev = index < measurements.length - 1 ? measurements[index + 1] : null
-            // Weight is compared with the previous entry that has a weight
-            const prevWeighIn = measurements.slice(index + 1).find((x) => x.weight != null)
-
-            return (
-              <div className="measurement-card" key={m.id}>
-                <div className="measurement-date">
-                  <span>📅 {formatDate(m.date)}</span>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setDeleteTarget(m.id)}
-                    style={{ color: 'var(--color-red)', padding: '0.25rem 0.5rem' }}
-                  >
-                    🗑️
-                  </button>
-                </div>
-                <div className="measurement-values">
-                  {/* Weight */}
-                  <div className="measurement-item measurement-item-wide">
-                    <div className="m-label">Weight</div>
-                    <div className="m-value">{m.weight ?? '—'} kg</div>
-                    {m.weight != null && prevWeighIn && (
-                      <div
-                        className="m-change"
-                        style={{ color: getWeightColor(calcWeightChange(m.weight, prevWeighIn.weight), client.goal) }}
-                      >
-                        ({calcMeasurementChange(m.weight, prevWeighIn.weight)} kg)
-                      </div>
-                    )}
-                  </div>
-                  {/* Chest */}
-                  <div className="measurement-item">
-                    <div className="m-label">Chest</div>
-                    <div className="m-value">{m.chest ?? '—'} in</div>
-                    {prev && m.chest != null && prev.chest != null && (
-                      <div
-                        className="m-change"
-                        style={{ color: getMeasurementColor(m.chest, prev.chest, client.goal, 'chest') }}
-                      >
-                        ({calcMeasurementChange(m.chest, prev.chest)} in)
-                      </div>
-                    )}
-                  </div>
-                  {/* Waist */}
-                  <div className="measurement-item">
-                    <div className="m-label">Waist</div>
-                    <div className="m-value">{m.waist ?? '—'} in</div>
-                    {prev && m.waist != null && prev.waist != null && (
-                      <div
-                        className="m-change"
-                        style={{ color: getMeasurementColor(m.waist, prev.waist, client.goal, 'waist') }}
-                      >
-                        ({calcMeasurementChange(m.waist, prev.waist)} in)
-                      </div>
-                    )}
-                  </div>
-                  {/* Arms */}
-                  <div className="measurement-item">
-                    <div className="m-label">Arms</div>
-                    <div className="m-value">{m.arms ?? '—'} in</div>
-                    {prev && m.arms != null && prev.arms != null && (
-                      <div
-                        className="m-change"
-                        style={{ color: getMeasurementColor(m.arms, prev.arms, client.goal, 'arms') }}
-                      >
-                        ({calcMeasurementChange(m.arms, prev.arms)} in)
-                      </div>
-                    )}
-                  </div>
-                  {/* Thigh */}
-                  <div className="measurement-item">
-                    <div className="m-label">Thigh</div>
-                    <div className="m-value">{m.thigh ?? '—'} in</div>
-                    {prev && m.thigh != null && prev.thigh != null && (
-                      <div
-                        className="m-change"
-                        style={{ color: getMeasurementColor(m.thigh, prev.thigh, client.goal, 'thigh') }}
-                      >
-                        ({calcMeasurementChange(m.thigh, prev.thigh)} in)
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })
+          <div className="timeline stagger">
+            {measurements.map((m, index) => (
+              <MeasurementCard
+                key={m.id}
+                measurement={m}
+                // Previous measurement is the next in the array (since sorted newest first)
+                prev={index < measurements.length - 1 ? measurements[index + 1] : null}
+                // Weight is compared with the previous entry that has a weight
+                prevWeighIn={measurements.slice(index + 1).find((x) => x.weight != null)}
+                goal={client.goal}
+                onDelete={() => setDeleteTarget(m.id)}
+              />
+            ))}
+          </div>
         )}
-      </div>
+      </section>
 
       {/* Delete Measurement Confirmation */}
       <ConfirmDialog
@@ -658,25 +597,39 @@ export default function ClientDetail() {
 
       <AdminCoachNotes clientId={client.id} trainerId={user.id} />
 
-      {/* Reset Password Modal */}
+      {/* New password after a reset */}
       {showResetModal && (
         <div className="modal-overlay" onClick={() => setShowResetModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3 className="modal-title">🔑 Password Reset</h3>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="icon-chip">
+              <KeyRound size={22} aria-hidden="true" />
+            </span>
+            <h3 className="modal-title" id="reset-title">New password</h3>
             <p className="modal-message">
-              New credentials for <strong>{client.name}</strong>. Save these — the password cannot be retrieved later.
+              New login details for <strong>{client.name}</strong>. Save them now; the password can't
+              be shown again.
             </p>
             <div className="credentials-box">
               <div className="credentials-row">
-                <span className="cred-label">Username:</span>
+                <span className="cred-label">Username</span>
                 <span className="cred-value">{clientUsername}</span>
               </div>
               <div className="credentials-row">
-                <span className="cred-label">New Password:</span>
+                <span className="cred-label">New password</span>
                 <span className="cred-value">{newPassword}</span>
               </div>
             </div>
             <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowResetModal(false)}>
+                <X size={18} aria-hidden="true" />
+                Close
+              </button>
               <button
                 className="btn btn-primary"
                 onClick={() => {
@@ -686,25 +639,15 @@ export default function ClientDetail() {
                   showToast('Credentials copied!')
                 }}
               >
-                📋 Copy
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => setShowResetModal(false)}
-              >
-                Close
+                <Copy size={18} aria-hidden="true" />
+                Copy
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Toast */}
-      {toast && (
-        <div className={`toast ${toastError ? 'toast-error' : ''}`}>
-          {toastError ? '⚠️' : '✅'} {toast}
-        </div>
-      )}
+      <Toast message={toast} error={toastError} />
     </div>
   )
 }

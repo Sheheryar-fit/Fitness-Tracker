@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
+import { NotebookPen, Send, Trash2, Clock } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import EmptyState from '../../components/EmptyState'
+import Loading from '../../components/Loading'
 import { formatDate } from '../../utils/calculations'
 
 export default function AdminCoachNotes({ clientId, trainerId }) {
@@ -9,7 +12,7 @@ export default function AdminCoachNotes({ clientId, trainerId }) {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
-  
+
   useEffect(() => {
     fetchNotes()
   }, [clientId])
@@ -75,60 +78,63 @@ export default function AdminCoachNotes({ clientId, trainerId }) {
     }
   }
 
-  if (loading) return <div className="spinner"></div>
-
   return (
-    <div style={{ marginTop: '2.5rem' }}>
-      <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-white)', marginBottom: '1rem' }}>
-        Coach Notes
-      </h3>
+    <section className="section">
+      <div className="section-header">
+        <h2 className="section-title">
+          Coach notes
+          {!loading && <span className="section-count">{notes.length}</span>}
+        </h2>
+      </div>
 
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
+      <div className="card" style={{ marginBottom: '1rem' }}>
         <form onSubmit={handleAddNote}>
           <div className="form-group">
+            <label className="form-label" htmlFor="new-coach-note">
+              New note for this client
+            </label>
             <textarea
+              id="new-coach-note"
               className="form-input"
               rows="3"
-              placeholder="Add a new note for this client..."
+              placeholder="Feedback, technique cues, nutrition tips..."
               value={newNote}
               onChange={(e) => setNewNote(e.target.value)}
               disabled={submitting}
-              style={{ resize: 'vertical' }}
             />
           </div>
-          <div className="form-actions" style={{ marginTop: '0.5rem' }}>
+          <div className="form-actions" style={{ marginTop: 0 }}>
             <button type="submit" className="btn btn-primary" disabled={submitting || !newNote.trim()}>
-              {submitting ? 'Adding...' : '📝 Add Note'}
+              {submitting ? <span className="btn-spinner" aria-hidden="true" /> : <Send size={18} aria-hidden="true" />}
+              {submitting ? 'Adding...' : 'Add Note'}
             </button>
           </div>
         </form>
       </div>
 
-      {notes.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">📝</div>
-          <p>No coach notes yet.</p>
-        </div>
+      {loading ? (
+        <Loading inline />
+      ) : notes.length === 0 ? (
+        <EmptyState icon={NotebookPen} title="No coach notes yet" text="Notes you add here show up for the client too." />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="feed stagger">
           {notes.map((note) => (
-            <div className="card" key={note.id} style={{ padding: '1.25rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--color-yellow)' }}>
+            <article className="card feed-item" key={note.id}>
+              <div className="feed-item-head">
+                <span className="feed-item-date">
+                  <Clock size={14} aria-hidden="true" />
                   {formatDate(note.created_at)}
                 </span>
                 <button
-                  className="btn btn-ghost btn-sm"
+                  className="icon-btn danger"
                   onClick={() => setDeleteTarget(note.id)}
-                  style={{ color: 'var(--color-red)', padding: '0 0.5rem' }}
+                  aria-label="Delete note"
                 >
-                  🗑️
+                  <Trash2 size={18} aria-hidden="true" />
                 </button>
               </div>
-              <p style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', margin: 0 }}>
-                {note.note_text}
-              </p>
-            </div>
+              <p className="feed-item-body">{note.note_text}</p>
+            </article>
           ))}
         </div>
       )}
@@ -140,6 +146,6 @@ export default function AdminCoachNotes({ clientId, trainerId }) {
         onConfirm={handleDeleteNote}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
+    </section>
   )
 }

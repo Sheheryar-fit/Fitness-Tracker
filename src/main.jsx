@@ -30,6 +30,7 @@ class AppCrashBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div className="app-crash-screen" role="alert" aria-live="assertive">
+          <span className="icon-chip tone-orange" aria-hidden="true">!</span>
           <h1>We hit a loading issue</h1>
           <p>
             Your mobile browser may be using an older cached app file. Refresh to load the latest version.
@@ -128,7 +129,7 @@ function UpdateBanner() {
         <strong>Update available</strong>
         <span>A newer version of the app is ready. Refresh to avoid stale cached files.</span>
       </div>
-      <button type="button" className="update-banner-button" onClick={handleRefresh}>
+      <button type="button" className="btn btn-primary btn-sm" onClick={handleRefresh}>
         Refresh now
       </button>
     </div>
