@@ -1,7 +1,8 @@
-# 💪 Sheheryar Fitness
+# 💪 FitTracker
 
 A web app for gym trainers to manage clients and track their progress.
-Live at https://sheheryarfitness.pages.dev
+
+![Login page](docs/screenshots/login.png)
 
 ## Features
 
@@ -84,10 +85,9 @@ why the order matters.
 
 ## Deployment
 
-Cloudflare Pages builds `main` of
-[Sheheryar-fit/Fitness-Tracker](https://github.com/Sheheryar-fit/Fitness-Tracker) with
-`npm run build` (output `dist`). Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the
-Pages project's environment variables.
+The app is a static build, so any static host works. It is set up for Cloudflare Pages: connect
+the repository, use `npm run build` as the build command and `dist` as the output directory, and
+set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the project's environment variables.
 
 - There is no top-level `404.html`, so Pages serves `index.html` for every route (single-page
   app mode). Adding a `404.html` would break routes like `/admin/clients` unless rewrites are added.
