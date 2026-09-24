@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -37,6 +37,7 @@ export default function ClientDetail() {
 
   // Measurement form state
   const [mDate, setMDate] = useState(getLocalDateString())
+  const [mWeight, setMWeight] = useState('')
   const [mChest, setMChest] = useState('')
   const [mWaist, setMWaist] = useState('')
   const [mArms, setMArms] = useState('')
@@ -46,6 +47,8 @@ export default function ClientDetail() {
   // UI state
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [toast, setToast] = useState('')
+  const [toastError, setToastError] = useState(false)
+  const toastTimer = useRef(null)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [showResetModal, setShowResetModal] = useState(false)
   const [newPassword, setNewPassword] = useState('')
@@ -100,31 +103,47 @@ export default function ClientDetail() {
   // Add a new measurement
   async function handleAddMeasurement(e) {
     e.preventDefault()
+
+    const values = {
+      weight: parseFloat(mWeight) || null,
+      chest: parseFloat(mChest) || null,
+      waist: parseFloat(mWaist) || null,
+      arms: parseFloat(mArms) || null,
+      thigh: parseFloat(mThigh) || null
+    }
+    if (Object.values(values).every((v) => v === null)) {
+      showToast('Enter at least one measurement', true)
+      return
+    }
+
     setSubmitting(true)
 
     try {
       const { data, error } = await supabase
         .from('measurements')
-        .insert({
-          client_id: id,
-          date: mDate,
-          chest: parseFloat(mChest) || null,
-          waist: parseFloat(mWaist) || null,
-          arms: parseFloat(mArms) || null,
-          thigh: parseFloat(mThigh) || null
-        })
+        .insert({ client_id: id, date: mDate, ...values })
         .select()
 
       if (error) throw error
 
-      // Add to list and clear form
+      // Add to list (kept newest date first) and clear form
       if (data && data[0]) {
-        setMeasurements((prev) => [data[0], ...prev])
+        setMeasurements((prev) =>
+          [data[0], ...prev].sort((a, b) => b.date.localeCompare(a.date))
+        )
       }
       clearMeasurementForm()
-      showToast('Measurement added successfully')
+
+      // A weigh-in becomes the current weight unless a later-dated weigh-in exists
+      const newerWeighIn = measurements.some((m) => m.weight != null && m.date > mDate)
+      if (values.weight !== null && !newerWeighIn) {
+        await syncCurrentWeight(values.weight, 'Measurement added')
+      } else {
+        showToast('Measurement added successfully')
+      }
     } catch (err) {
       console.error('Error adding measurement:', err)
+      showToast('Failed to add measurement', true)
     } finally {
       setSubmitting(false)
     }
@@ -140,16 +159,59 @@ export default function ClientDetail() {
         .eq('id', deleteTarget)
 
       if (error) throw error
+
+      const fallback = weightAfterDelete(deleteTarget)
       setMeasurements((prev) => prev.filter((m) => m.id !== deleteTarget))
       setDeleteTarget(null)
-      showToast('Measurement deleted')
+
+      if (fallback) {
+        await syncCurrentWeight(fallback.weight, 'Measurement deleted')
+      } else {
+        showToast('Measurement deleted')
+      }
     } catch (err) {
       console.error('Error deleting measurement:', err)
+      showToast('Failed to delete measurement', true)
     }
+  }
+
+  // What the current weight becomes if this measurement is deleted: null when it
+  // isn't the latest weigh-in, else the previous weigh-in or the starting weight
+  function weightAfterDelete(measurementId) {
+    // measurements is newest first, so the first one with a weight is the latest weigh-in
+    const latestWeighIn = measurements.find((m) => m.weight != null)
+    if (latestWeighIn?.id !== measurementId) return null
+
+    const previousWeighIn = measurements.find((m) => m.weight != null && m.id !== measurementId)
+    if (previousWeighIn) {
+      return { weight: previousWeighIn.weight, label: `${previousWeighIn.weight} kg (previous weigh-in)` }
+    }
+    if (client.starting_weight != null) {
+      return { weight: client.starting_weight, label: `${client.starting_weight} kg (starting weight)` }
+    }
+    return null
+  }
+
+  // Save a weigh-in as the client's current weight
+  async function syncCurrentWeight(weight, doneMessage) {
+    const { error } = await supabase
+      .from('clients')
+      .update({ current_weight: weight })
+      .eq('id', id)
+      .eq('trainer_id', user.id)
+
+    if (error) {
+      console.error('Error updating current weight:', error)
+      showToast(`${doneMessage}, but current weight could not be updated`, true)
+      return
+    }
+    setClient((prev) => ({ ...prev, current_weight: weight }))
+    showToast(`${doneMessage}, current weight is now ${weight} kg`)
   }
 
   function clearMeasurementForm() {
     setMDate(getLocalDateString())
+    setMWeight('')
     setMChest('')
     setMWaist('')
     setMArms('')
@@ -172,15 +234,18 @@ export default function ClientDetail() {
       setShowResetModal(true)
     } catch (err) {
       console.error('Error resetting password:', err)
-      showToast('Failed to reset password')
+      showToast('Failed to reset password', true)
     } finally {
       setResetting(false)
     }
   }
 
-  function showToast(message) {
+  function showToast(message, isError = false) {
     setToast(message)
-    setTimeout(() => setToast(''), 3000)
+    setToastError(isError)
+    // Restart the timer so an older toast's timeout can't hide this one early
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(''), 3000)
   }
 
   if (loading || !client) {
@@ -198,6 +263,7 @@ export default function ClientDetail() {
   const positive = isPositiveProgress(weightChange, client.goal)
   const daysActive = calcDaysActive(client.join_date)
   const latestMeasurement = measurements.length > 0 ? measurements[0] : null
+  const deleteFallback = deleteTarget ? weightAfterDelete(deleteTarget) : null
   const progressBarWidth = Math.min(Math.abs(weightPercent), 100)
 
   return (
@@ -364,6 +430,23 @@ export default function ClientDetail() {
               />
             </div>
             <div className="form-group">
+              <label className="form-label" htmlFor="m-weight">
+                Weight (kg)
+              </label>
+              <input
+                id="m-weight"
+                type="number"
+                className="form-input"
+                placeholder="e.g. 78.5"
+                value={mWeight}
+                onChange={(e) => setMWeight(e.target.value)}
+                step="0.1"
+                disabled={submitting}
+              />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
               <label className="form-label" htmlFor="m-chest">
                 Chest (in)
               </label>
@@ -378,8 +461,6 @@ export default function ClientDetail() {
                 disabled={submitting}
               />
             </div>
-          </div>
-          <div className="form-row">
             <div className="form-group">
               <label className="form-label" htmlFor="m-waist">
                 Waist (in)
@@ -395,6 +476,8 @@ export default function ClientDetail() {
                 disabled={submitting}
               />
             </div>
+          </div>
+          <div className="form-row">
             <div className="form-group">
               <label className="form-label" htmlFor="m-arms">
                 Arms (in)
@@ -410,8 +493,6 @@ export default function ClientDetail() {
                 disabled={submitting}
               />
             </div>
-          </div>
-          <div className="form-row">
             <div className="form-group">
               <label className="form-label" htmlFor="m-thigh">
                 Thigh (in)
@@ -427,26 +508,24 @@ export default function ClientDetail() {
                 disabled={submitting}
               />
             </div>
-            <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
-              <div className="form-actions" style={{ margin: 0 }}>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={submitting}
-                  id="add-measurement-btn"
-                >
-                  {submitting ? 'Adding...' : '📏 Add'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={clearMeasurementForm}
-                  disabled={submitting}
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
+          </div>
+          <div className="form-actions" style={{ marginTop: '0.5rem' }}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={submitting}
+              id="add-measurement-btn"
+            >
+              {submitting ? 'Adding...' : '📏 Add'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={clearMeasurementForm}
+              disabled={submitting}
+            >
+              Clear
+            </button>
           </div>
         </form>
       </div>
@@ -467,6 +546,8 @@ export default function ClientDetail() {
           measurements.map((m, index) => {
             // Previous measurement is the next in the array (since sorted newest first)
             const prev = index < measurements.length - 1 ? measurements[index + 1] : null
+            // Weight is compared with the previous entry that has a weight
+            const prevWeighIn = measurements.slice(index + 1).find((x) => x.weight != null)
 
             return (
               <div className="measurement-card" key={m.id}>
@@ -481,6 +562,19 @@ export default function ClientDetail() {
                   </button>
                 </div>
                 <div className="measurement-values">
+                  {/* Weight */}
+                  <div className="measurement-item measurement-item-wide">
+                    <div className="m-label">Weight</div>
+                    <div className="m-value">{m.weight ?? '—'} kg</div>
+                    {m.weight != null && prevWeighIn && (
+                      <div
+                        className="m-change"
+                        style={{ color: getWeightColor(calcWeightChange(m.weight, prevWeighIn.weight), client.goal) }}
+                      >
+                        ({calcMeasurementChange(m.weight, prevWeighIn.weight)} kg)
+                      </div>
+                    )}
+                  </div>
                   {/* Chest */}
                   <div className="measurement-item">
                     <div className="m-label">Chest</div>
@@ -488,7 +582,7 @@ export default function ClientDetail() {
                     {prev && m.chest != null && prev.chest != null && (
                       <div
                         className="m-change"
-                        style={{ color: getMeasurementColor(m.chest, prev.chest) }}
+                        style={{ color: getMeasurementColor(m.chest, prev.chest, client.goal, 'chest') }}
                       >
                         ({calcMeasurementChange(m.chest, prev.chest)} in)
                       </div>
@@ -501,7 +595,7 @@ export default function ClientDetail() {
                     {prev && m.waist != null && prev.waist != null && (
                       <div
                         className="m-change"
-                        style={{ color: getMeasurementColor(m.waist, prev.waist) }}
+                        style={{ color: getMeasurementColor(m.waist, prev.waist, client.goal, 'waist') }}
                       >
                         ({calcMeasurementChange(m.waist, prev.waist)} in)
                       </div>
@@ -514,7 +608,7 @@ export default function ClientDetail() {
                     {prev && m.arms != null && prev.arms != null && (
                       <div
                         className="m-change"
-                        style={{ color: getMeasurementColor(m.arms, prev.arms) }}
+                        style={{ color: getMeasurementColor(m.arms, prev.arms, client.goal, 'arms') }}
                       >
                         ({calcMeasurementChange(m.arms, prev.arms)} in)
                       </div>
@@ -527,7 +621,7 @@ export default function ClientDetail() {
                     {prev && m.thigh != null && prev.thigh != null && (
                       <div
                         className="m-change"
-                        style={{ color: getMeasurementColor(m.thigh, prev.thigh) }}
+                        style={{ color: getMeasurementColor(m.thigh, prev.thigh, client.goal, 'thigh') }}
                       >
                         ({calcMeasurementChange(m.thigh, prev.thigh)} in)
                       </div>
@@ -544,7 +638,10 @@ export default function ClientDetail() {
       <ConfirmDialog
         isOpen={!!deleteTarget}
         title="Delete Measurement"
-        message="Are you sure you want to delete this measurement entry? This action cannot be undone."
+        message={
+          'Are you sure you want to delete this measurement entry? This action cannot be undone.' +
+          (deleteFallback ? ` Current weight will change to ${deleteFallback.label}.` : '')
+        }
         onConfirm={handleDeleteMeasurement}
         onCancel={() => setDeleteTarget(null)}
       />
@@ -604,8 +701,8 @@ export default function ClientDetail() {
 
       {/* Toast */}
       {toast && (
-        <div className="toast">
-          ✅ {toast}
+        <div className={`toast ${toastError ? 'toast-error' : ''}`}>
+          {toastError ? '⚠️' : '✅'} {toast}
         </div>
       )}
     </div>

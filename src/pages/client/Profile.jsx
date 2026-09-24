@@ -186,6 +186,10 @@ export default function ClientProfile() {
 
         {latestMeasurement ? (
           <div className="measurement-values">
+            <div className="measurement-item measurement-item-wide">
+              <div className="m-label">Weight</div>
+              <div className="m-value">{latestMeasurement.weight ?? '—'} kg</div>
+            </div>
             <div className="measurement-item">
               <div className="m-label">Chest</div>
               <div className="m-value">{latestMeasurement.chest ?? '—'} in</div>

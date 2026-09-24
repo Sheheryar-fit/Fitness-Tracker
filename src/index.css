@@ -967,7 +967,7 @@ input, select, textarea {
 
 .measurement-values {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 1rem;
 }
 
@@ -1125,6 +1125,11 @@ input, select, textarea {
 /* ============================================
    Toast / Success Message
    ============================================ */
+.toast.toast-error {
+  border-color: var(--color-red);
+  color: var(--color-red);
+}
+
 .toast {
   position: fixed;
   bottom: 2rem;
@@ -1216,6 +1221,11 @@ input, select, textarea {
   
   .measurement-values {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Weight gets its own full-width row in the 2-column layout */
+  .measurement-item-wide {
+    grid-column: 1 / -1;
   }
 
   .main-content {

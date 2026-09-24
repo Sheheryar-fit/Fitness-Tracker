@@ -3,7 +3,9 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import {
   calcMeasurementChange,
+  calcWeightChange,
   getMeasurementColor,
+  getWeightColor,
   formatDate
 } from '../../utils/calculations'
 
@@ -15,6 +17,7 @@ import {
 export default function MeasurementHistory() {
   const { user } = useAuth()
   const [measurements, setMeasurements] = useState([])
+  const [goal, setGoal] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -23,11 +26,12 @@ export default function MeasurementHistory() {
         // First get client_id from user_id
         const { data: clientData, error: clientErr } = await supabase
           .from('clients')
-          .select('id')
+          .select('id, goal')
           .eq('user_id', user.id)
           .single()
 
         if (clientErr || !clientData) throw clientErr || new Error('Client not found')
+        setGoal(clientData.goal)
 
         // Fetch all measurements
         const { data: measData, error: measErr } = await supabase
@@ -71,6 +75,8 @@ export default function MeasurementHistory() {
       ) : (
         measurements.map((m, index) => {
           const prev = index < measurements.length - 1 ? measurements[index + 1] : null
+          // Weight is compared with the previous entry that has a weight
+          const prevWeighIn = measurements.slice(index + 1).find((x) => x.weight != null)
 
           return (
             <div className="measurement-card" key={m.id}>
@@ -78,6 +84,19 @@ export default function MeasurementHistory() {
                 <span>📅 {formatDate(m.date)}</span>
               </div>
               <div className="measurement-values">
+                {/* Weight */}
+                <div className="measurement-item measurement-item-wide">
+                  <div className="m-label">Weight</div>
+                  <div className="m-value">{m.weight ?? '—'} kg</div>
+                  {m.weight != null && prevWeighIn && (
+                    <div
+                      className="m-change"
+                      style={{ color: getWeightColor(calcWeightChange(m.weight, prevWeighIn.weight), goal) }}
+                    >
+                      ({calcMeasurementChange(m.weight, prevWeighIn.weight)} kg)
+                    </div>
+                  )}
+                </div>
                 {/* Chest */}
                 <div className="measurement-item">
                   <div className="m-label">Chest</div>
@@ -85,7 +104,7 @@ export default function MeasurementHistory() {
                   {prev && m.chest != null && prev.chest != null && (
                     <div
                       className="m-change"
-                      style={{ color: getMeasurementColor(m.chest, prev.chest) }}
+                      style={{ color: getMeasurementColor(m.chest, prev.chest, goal, 'chest') }}
                     >
                       ({calcMeasurementChange(m.chest, prev.chest)} in)
                     </div>
@@ -98,7 +117,7 @@ export default function MeasurementHistory() {
                   {prev && m.waist != null && prev.waist != null && (
                     <div
                       className="m-change"
-                      style={{ color: getMeasurementColor(m.waist, prev.waist) }}
+                      style={{ color: getMeasurementColor(m.waist, prev.waist, goal, 'waist') }}
                     >
                       ({calcMeasurementChange(m.waist, prev.waist)} in)
                     </div>
@@ -111,7 +130,7 @@ export default function MeasurementHistory() {
                   {prev && m.arms != null && prev.arms != null && (
                     <div
                       className="m-change"
-                      style={{ color: getMeasurementColor(m.arms, prev.arms) }}
+                      style={{ color: getMeasurementColor(m.arms, prev.arms, goal, 'arms') }}
                     >
                       ({calcMeasurementChange(m.arms, prev.arms)} in)
                     </div>
@@ -124,7 +143,7 @@ export default function MeasurementHistory() {
                   {prev && m.thigh != null && prev.thigh != null && (
                     <div
                       className="m-change"
-                      style={{ color: getMeasurementColor(m.thigh, prev.thigh) }}
+                      style={{ color: getMeasurementColor(m.thigh, prev.thigh, goal, 'thigh') }}
                     >
                       ({calcMeasurementChange(m.thigh, prev.thigh)} in)
                     </div>

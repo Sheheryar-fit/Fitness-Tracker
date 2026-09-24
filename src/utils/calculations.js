@@ -78,18 +78,21 @@ export function calcMeasurementChange(current, previous) {
 }
 
 /**
- * Get color for measurement change
- * Green for positive, Red for negative, Gray for zero
+ * Get color for a tape measurement change, based on the client's goal
+ * Waist going down is good for every goal; chest, arms and thigh
+ * should go down for fat loss and up for muscle gain
  * @param {number} current
  * @param {number} previous
- * @returns {string}
+ * @param {string} goal - 'fat_loss' or 'muscle_gain'
+ * @param {string} metric - 'chest', 'waist', 'arms' or 'thigh'
+ * @returns {string} Green if the change is good, red if not, gray for none
  */
-export function getMeasurementColor(current, previous) {
+export function getMeasurementColor(current, previous, goal, metric) {
   if (previous === null || previous === undefined) return 'var(--color-gray)'
-  const change = current - previous
-  if (change > 0) return 'var(--color-green)'
-  if (change < 0) return 'var(--color-red)'
-  return 'var(--color-gray)'
+  const change = parseFloat((current - previous).toFixed(1))
+  if (change === 0) return 'var(--color-gray)'
+  const shouldIncrease = metric !== 'waist' && goal === 'muscle_gain'
+  return (change > 0) === shouldIncrease ? 'var(--color-green)' : 'var(--color-red)'
 }
 
 /**

@@ -64,3 +64,6 @@ CREATE POLICY "Allow all on progress_photos" ON progress_photos FOR ALL USING (t
 -- 7. Add Storage Bucket (Run only if running as superuser, otherwise do this manually)
 -- INSERT INTO storage.buckets (id, name, public) VALUES ('photos', 'photos', true) ON CONFLICT DO NOTHING;
 -- CREATE POLICY "Public Access" ON storage.objects FOR ALL USING (bucket_id = 'photos') WITH CHECK (bucket_id = 'photos');
+
+-- 8. Weight on measurements (kg); a weigh-in also updates clients.current_weight in the app
+ALTER TABLE measurements ADD COLUMN IF NOT EXISTS weight DECIMAL(5,1);
