@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
+import { initInstallPrompt } from './lib/installPrompt'
 import './index.css'
 
 class AppCrashBoundary extends React.Component {
@@ -134,6 +135,16 @@ function UpdateBanner() {
       </button>
     </div>
   )
+}
+
+// Install as an app: capture the install prompt early and register the service worker
+initInstallPrompt()
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('Service worker registration failed:', err)
+    })
+  })
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

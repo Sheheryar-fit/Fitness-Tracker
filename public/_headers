@@ -16,3 +16,12 @@
 # No long/immutable caching for /assets/*: a missing asset gets the SPA fallback
 # (index.html), and caching that for a year breaks the page until the cache is cleared.
 # Pages' default (max-age=0, must-revalidate + ETag) revalidates cheaply instead.
+
+# The service worker must always be re-checked so updates reach installed apps
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+/manifest.webmanifest
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache

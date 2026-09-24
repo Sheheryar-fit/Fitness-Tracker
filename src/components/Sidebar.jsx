@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import Avatar from './Avatar'
+import InstallApp from './InstallApp'
 
 const ADMIN_LINKS = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -102,6 +103,7 @@ export default function Sidebar({ isOpen, hidden, onClose }) {
         })}
 
         <span className="sidebar-section-label">Account</span>
+        <InstallApp variant="nav" />
         <NavLink
           to={isAdmin ? '/admin/password' : '/client/password'}
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}

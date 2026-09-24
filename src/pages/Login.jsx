@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Dumbbell, Eye, EyeOff, TriangleAlert, Ruler, Target, CalendarCheck, LogIn } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import InstallApp from '../components/InstallApp'
 
 const FEATURES = [
   { icon: Ruler, text: 'Weight and body measurements, tracked over time' },
@@ -180,6 +181,10 @@ export default function Login() {
           </form>
 
           <p className="login-footnote">Forgot your password? Ask your trainer to reset it.</p>
+
+          <div className="login-install">
+            <InstallApp />
+          </div>
         </div>
       </section>
     </div>

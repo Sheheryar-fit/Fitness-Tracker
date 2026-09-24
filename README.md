@@ -17,6 +17,18 @@ Live at https://sheheryarfitness.pages.dev
 - Upload own progress photos
 - Change password
 
+## Install as an App
+
+The site is a Progressive Web App (`public/manifest.webmanifest`, icons in `public/icons/`).
+- **Android / Chrome / Edge (desktop too):** the **Install App** button (sidebar and login page) opens the browser's install dialog
+- **iPhone / iPad:** the button explains Share → Add to Home Screen (Apple has no install API)
+- **Mac Safari:** the button explains File → Add to Dock
+- The button hides where installing isn't possible or the app is already installed
+
+`public/sw.js` only shows `offline.html` when there's no connection; it does not cache app files,
+so installed apps always load the latest deploy. If you change `offline.html`, rename
+`OFFLINE_CACHE` in `sw.js` so installed apps pick up the new copy.
+
 ## Tech Stack
 - React 19 + Vite, React Router
 - Supabase: Postgres with row level security, Auth, Storage
