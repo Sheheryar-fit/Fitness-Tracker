@@ -1,4 +1,4 @@
-# 💪 Fitness Tracker
+# 💪 Sheheryar Fitness
 
 A web app for gym trainers to manage clients and track their progress.
 Live at https://sheheryarfitness.pages.dev

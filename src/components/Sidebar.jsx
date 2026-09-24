@@ -76,7 +76,7 @@ export default function Sidebar({ isOpen, hidden, onClose }) {
           </span>
           <div className="brand-text">
             <span className="brand-name">Sheheryar Fitness</span>
-            <span className="brand-tagline">FitTracker</span>
+            <span className="brand-tagline">Coaching &amp; progress</span>
           </div>
         </div>
         <button type="button" className="icon-btn sidebar-close" onClick={onClose} aria-label="Close menu" ref={closeButtonRef}>

@@ -58,11 +58,11 @@ function InstallSteps({ mode, onClose }) {
     ? [
         { icon: Share, text: <>Tap the <strong>Share</strong> button in the browser toolbar (bottom of the screen on iPhone, top on iPad).</> },
         { icon: SquarePlus, text: <>Scroll down and tap <strong>Add to Home Screen</strong>.</> },
-        { icon: Download, text: <>Tap <strong>Add</strong>. FitTracker now opens full screen from your home screen.</> }
+        { icon: Download, text: <>Tap <strong>Add</strong>. Sheheryar Fitness now opens full screen from your home screen.</> }
       ]
     : [
         { icon: MonitorDown, text: <>In the menu bar, choose <strong>File → Add to Dock</strong> (macOS Sonoma or newer).</> },
-        { icon: Download, text: <>Click <strong>Add</strong>. FitTracker now opens in its own window from the Dock.</> }
+        { icon: Download, text: <>Click <strong>Add</strong>. Sheheryar Fitness now opens in its own window from the Dock.</> }
       ]
 
   return (
@@ -85,7 +85,7 @@ function InstallSteps({ mode, onClose }) {
         <h3 className="modal-title" id="install-title">
           {isIOS ? 'Add to your Home Screen' : 'Add to your Dock'}
         </h3>
-        <p className="modal-message">Use FitTracker like an app, without the browser bars.</p>
+        <p className="modal-message">Use Sheheryar Fitness like an app, without the browser bars.</p>
 
         <ol className="install-steps">
           {steps.map(({ icon: Icon, text }, index) => (

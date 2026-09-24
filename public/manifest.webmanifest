@@ -1,7 +1,7 @@
 {
   "id": "/",
   "name": "Sheheryar Fitness",
-  "short_name": "FitTracker",
+  "short_name": "Sheheryar Fitness",
   "description": "Track workouts, measurements, goals and coach feedback with Sheheryar Fitness.",
   "start_url": "/",
   "scope": "/",

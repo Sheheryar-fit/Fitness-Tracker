@@ -65,7 +65,7 @@ export default function Login() {
           </span>
           <div className="brand-text">
             <span className="brand-name">Sheheryar Fitness</span>
-            <span className="brand-tagline">FitTracker</span>
+            <span className="brand-tagline">Coaching &amp; progress</span>
           </div>
         </div>
 
@@ -99,7 +99,7 @@ export default function Login() {
             </span>
             <div className="brand-text">
               <span className="brand-name">Sheheryar Fitness</span>
-              <span className="brand-tagline">FitTracker</span>
+              <span className="brand-tagline">Coaching &amp; progress</span>
             </div>
           </div>
 
