@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Target } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { getGoalStatus, groupGoalsByStatus } from '../../utils/calculations'
+import { calculateGoalProgress, getGoalStatus, groupGoalsByStatus } from '../../utils/calculations'
 import ProgressPhotos from '../../components/ProgressPhotos'
 import PageHeader from '../../components/PageHeader'
 import GoalCard from '../../components/GoalCard'
@@ -53,58 +53,11 @@ export default function ClientGoals() {
     fetchData()
   }, [])
 
-  function calculateProgress(goal) {
-    let currentVal = goal.starting_value
-    
-    if (goal.target_metric === 'Weight' && clientData?.current_weight) {
-      currentVal = clientData.current_weight
-    } else {
-      const clientMeas = measurements[0] // newest measurement
-      if (clientMeas) {
-        if (goal.target_metric === 'Chest' && clientMeas.chest) currentVal = clientMeas.chest
-        if (goal.target_metric === 'Waist' && clientMeas.waist) currentVal = clientMeas.waist
-        if (goal.target_metric === 'Arms' && clientMeas.arms) currentVal = clientMeas.arms
-        if (goal.target_metric === 'Thigh' && clientMeas.thigh) currentVal = clientMeas.thigh
-      }
-    }
-
-    const start = parseFloat(goal.starting_value)
-    const target = parseFloat(goal.target_value)
-    const current = parseFloat(currentVal)
-    
-    if (isNaN(start) || isNaN(target) || isNaN(current)) return { percent: 0, current, badges: [] }
-
-    const totalDiff = Math.abs(start - target)
-    if (totalDiff === 0) return { percent: 100, current, badges: ['100% Goal Hit 🏆'] }
-
-    const isDecreasing = target < start
-    
-    let progressPercent = 0
-    if (isDecreasing) {
-      if (current <= target) progressPercent = 100
-      else if (current >= start) progressPercent = 0
-      else progressPercent = ((start - current) / totalDiff) * 100
-    } else {
-      if (current >= target) progressPercent = 100
-      else if (current <= start) progressPercent = 0
-      else progressPercent = ((current - start) / totalDiff) * 100
-    }
-
-    progressPercent = Math.max(0, Math.min(100, Math.round(progressPercent)))
-
-    const badges = []
-    if (progressPercent >= 25 && progressPercent < 50) badges.push('Started Strong 🥉')
-    if (progressPercent >= 50 && progressPercent < 100) badges.push('Halfway There 🥈')
-    if (progressPercent === 100) badges.push('Target Reached 🏆')
-
-    return { percent: progressPercent, current, badges }
-  }
-
   if (loading) return <Loading />
 
   const goalSections = groupGoalsByStatus(
     goals.map((goal) => {
-      const progress = calculateProgress(goal)
+      const progress = calculateGoalProgress(goal, clientData?.current_weight, measurements[0]) // measurements are newest first
       return { goal, ...progress, status: getGoalStatus(progress.percent, goal.deadline) }
     })
   )

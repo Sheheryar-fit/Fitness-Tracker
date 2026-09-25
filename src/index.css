@@ -539,6 +539,12 @@ img {
   font-size: 1.4rem;
 }
 
+.section-note {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-3);
+}
+
 .section-count {
   display: inline-grid;
   place-items: center;
@@ -1713,6 +1719,12 @@ a.list-row:hover {
 .goal-card-title {
   flex: 1;
   min-width: 0;
+}
+
+.goal-card-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.1rem;
 }
 
 .goal-card-title h3 {

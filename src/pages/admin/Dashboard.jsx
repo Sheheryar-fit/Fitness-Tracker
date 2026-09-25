@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { Users, Activity, UserPlus, CalendarCheck, Target, ChevronRight } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { formatDate, formatGoal, getLocalDateString } from '../../utils/calculations'
+import { calcDaysActive, formatDate, formatGoal, getLocalDateString } from '../../utils/calculations'
+import { ACTIVE_DAYS, fetchClientActivity, findQuietClients, getActiveSince } from '../../lib/clientActivity'
 import PageHeader from '../../components/PageHeader'
 import StatCard from '../../components/StatCard'
 import Avatar from '../../components/Avatar'
@@ -16,15 +17,18 @@ const QUICK_ACTIONS = [
   { to: '/admin/goals', icon: Target, title: 'Set a goal', text: 'Targets with live progress' }
 ]
 
+const QUIET_SHOWN = 5
+
 /**
  * Admin Dashboard Page
- * Key numbers, quick actions and the most recently added clients
+ * Key numbers, clients who have gone quiet, quick actions and the most recently added clients
  */
 export default function AdminDashboard() {
   const { user } = useAuth()
   const [clients, setClients] = useState([])
   const [activeClients, setActiveClients] = useState(0)
   const [checkinsThisWeek, setCheckinsThisWeek] = useState(0)
+  const [quietClients, setQuietClients] = useState([])
   const [loading, setLoading] = useState(true)
 
   const now = new Date()
@@ -70,6 +74,14 @@ export default function AdminDashboard() {
           .gte('date', weekAgo)
 
         if (!cError) setCheckinsThisWeek(count || 0)
+
+        // A failure here only hides the "quiet clients" list, not the rest of the dashboard
+        try {
+          const activity = await fetchClientActivity(user.id)
+          setQuietClients(findQuietClients(activity, getActiveSince()))
+        } catch (activityErr) {
+          console.error('Error fetching client activity:', activityErr)
+        }
       }
     } catch (err) {
       console.error('Error fetching stats:', err)
@@ -116,6 +128,49 @@ export default function AdminDashboard() {
           to="/admin/checkins"
         />
       </div>
+
+      {/* Clients with no measurement or check-in lately, longest quiet first */}
+      {quietClients.length > 0 && (
+        <section className="section" aria-labelledby="quiet-clients-title">
+          <div className="section-header">
+            <h2 className="section-title" id="quiet-clients-title">
+              Quiet clients
+              <span className="section-count">{quietClients.length}</span>
+            </h2>
+            <Link to="/admin/clients?status=quiet&sort=quiet" className="btn btn-ghost btn-sm">
+              View all
+              <ChevronRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="card">
+            <ul className="list stagger">
+              {quietClients.slice(0, QUIET_SHOWN).map((client) => (
+                <li key={client.id}>
+                  <Link to={`/admin/clients/${client.id}`} className="list-row">
+                    <Avatar name={client.name} size="sm" />
+                    <div className="list-row-main">
+                      <div className="list-row-title">{client.name}</div>
+                      <div className="list-row-meta">
+                        {client.lastActivity
+                          ? `Last activity ${formatDate(client.lastActivity)}`
+                          : 'No activity since joining'}
+                      </div>
+                    </div>
+                    {client.quietSince && (
+                      <span className="badge badge-warning">{calcDaysActive(client.quietSince)} days</span>
+                    )}
+                    <ChevronRight size={18} className="stat-link-arrow" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="section-note">
+            {quietClients.length > QUIET_SHOWN && `Showing the ${QUIET_SHOWN} quietest. `}
+            Quiet means no measurement or check-in in the last {ACTIVE_DAYS} days.
+          </p>
+        </section>
+      )}
 
       <div className="grid-2 section">
         {/* Quick actions */}

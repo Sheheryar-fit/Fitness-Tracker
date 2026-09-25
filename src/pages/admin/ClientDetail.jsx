@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   KeyRound,
   Pencil,
@@ -46,6 +46,7 @@ export default function ClientDetail() {
   const { id } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   // Data state
   const [client, setClient] = useState(null)
@@ -281,7 +282,7 @@ export default function ClientDetail() {
   return (
     <div>
       <PageHeader
-        back={{ to: '/admin/clients', label: 'Clients' }}
+        back={{ to: location.state?.from || '/admin/clients', label: 'Clients' }}
         lead={<Avatar name={client.name} size="lg" />}
         title={client.name}
         subtitle={

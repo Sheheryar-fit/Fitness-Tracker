@@ -1,4 +1,4 @@
-import { Scale, Ruler, Trash2, CalendarClock, Trophy, Medal, Award } from 'lucide-react'
+import { Scale, Ruler, Trash2, Pencil, CalendarClock, Trophy, Medal, Award } from 'lucide-react'
 import { formatDate } from '../utils/calculations'
 
 // Milestone badges come from calculateProgress() as text with an emoji at the end
@@ -18,10 +18,11 @@ function badgeParts(badge) {
  * @param {number} current - Current value of the metric
  * @param {string[]} badges - Milestone badges
  * @param {string} status - 'active' | 'overdue' | 'completed'
+ * @param {function} onEdit - Optional; shows an edit button
  * @param {function} onDelete - Optional; shows a delete button
  * @param {ReactNode} children - Extra content (e.g. progress photos)
  */
-export default function GoalCard({ goal, title, percent, current, badges, status, onDelete, children }) {
+export default function GoalCard({ goal, title, percent, current, badges, status, onEdit, onDelete, children }) {
   const unit = goal.target_metric === 'Weight' ? 'kg' : 'in'
   const MetricIcon = goal.target_metric === 'Weight' ? Scale : Ruler
   const tone = status === 'completed' ? 'green' : status === 'overdue' ? 'red' : 'yellow'
@@ -36,10 +37,19 @@ export default function GoalCard({ goal, title, percent, current, badges, status
           <h3>{title}</h3>
           {goal.description && <p>{goal.description}</p>}
         </div>
-        {onDelete && (
-          <button className="icon-btn danger" onClick={onDelete} aria-label={`Delete goal: ${title}`}>
-            <Trash2 size={18} aria-hidden="true" />
-          </button>
+        {(onEdit || onDelete) && (
+          <div className="goal-card-actions">
+            {onEdit && (
+              <button className="icon-btn" onClick={onEdit} aria-label={`Edit goal: ${title}`}>
+                <Pencil size={18} aria-hidden="true" />
+              </button>
+            )}
+            {onDelete && (
+              <button className="icon-btn danger" onClick={onDelete} aria-label={`Delete goal: ${title}`}>
+                <Trash2 size={18} aria-hidden="true" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 

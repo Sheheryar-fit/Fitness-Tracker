@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { Link } from 'react-router-dom'
-import { Target, Plus, X, Users, UserPlus } from 'lucide-react'
-import { getGoalStatus, groupGoalsByStatus } from '../../utils/calculations'
+import { Target, Plus, X, Users, UserPlus, Save, TriangleAlert } from 'lucide-react'
+import { calculateGoalProgress, getGoalStatus, groupGoalsByStatus } from '../../utils/calculations'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import ProgressPhotos from '../../components/ProgressPhotos'
 import PageHeader from '../../components/PageHeader'
@@ -29,10 +29,20 @@ export default function GoalProgressAdmin() {
   const [submitting, setSubmitting] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [editingGoal, setEditingGoal] = useState(null) // goal being edited, or null when adding
+  const [formError, setFormError] = useState('')
 
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Bring the form into view when a goal is opened for editing
+  useEffect(() => {
+    if (!editingGoal) return
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    document.getElementById('new-goal-form')?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+    document.getElementById('goal-target')?.focus({ preventScroll: true })
+  }, [editingGoal])
 
   async function fetchData() {
     try {
@@ -75,22 +85,79 @@ export default function GoalProgressAdmin() {
     }
   }
 
+  function clearForm() {
+    setDescription('')
+    setTargetValue('')
+    setStartingValue('')
+    setDeadline('')
+    setFormError('')
+  }
+
+  // Leave edit mode and put the form back to its empty "new goal" state
+  function stopEditing() {
+    setEditingGoal(null)
+    setSelectedClientId('')
+    setTargetMetric('Weight')
+    clearForm()
+  }
+
+  function closeForm() {
+    if (editingGoal) stopEditing()
+    setFormError('')
+    setShowForm(false)
+  }
+
+  // Only the description, values and deadline can change; client and metric are fixed
+  function startEditing(goal) {
+    setEditingGoal(goal)
+    setSelectedClientId(goal.client_id)
+    setTargetMetric(goal.target_metric)
+    setStartingValue(goal.starting_value == null ? '' : String(goal.starting_value))
+    setTargetValue(String(goal.target_value))
+    setDescription(goal.description || '')
+    setDeadline(goal.deadline || '')
+    setFormError('')
+    setShowForm(true)
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!selectedClientId) return
 
+    setFormError('')
     setSubmitting(true)
     try {
+      const values = {
+        description: description.trim(),
+        target_value: parseFloat(targetValue),
+        starting_value: parseFloat(startingValue),
+        deadline: deadline || null
+      }
+
+      if (editingGoal) {
+        const { data, error } = await supabase
+          .from('goals')
+          .update(values)
+          .eq('id', editingGoal.id)
+          .select('*, client:clients(name, current_weight)')
+
+        if (error) throw error
+        // RLS answers "no rows" instead of an error when the goal isn't the trainer's
+        if (!data || !data[0]) throw new Error('The goal could not be found')
+
+        setGoals((prev) => prev.map((g) => (g.id === editingGoal.id ? data[0] : g)))
+        stopEditing()
+        setShowForm(false)
+        return
+      }
+
       const { data, error } = await supabase
         .from('goals')
         .insert({
           client_id: selectedClientId,
           trainer_id: user.id,
-          description: description.trim(),
           target_metric: targetMetric,
-          target_value: parseFloat(targetValue),
-          starting_value: parseFloat(startingValue),
-          deadline: deadline || null
+          ...values
         })
         .select('*, client:clients(name, current_weight)')
 
@@ -98,14 +165,12 @@ export default function GoalProgressAdmin() {
 
       if (data && data[0]) {
         setGoals((prev) => [data[0], ...prev])
-        setDescription('')
-        setTargetValue('')
-        setStartingValue('')
-        setDeadline('')
+        clearForm()
         setShowForm(false)
       }
     } catch (err) {
-      console.error('Error adding goal:', err)
+      console.error('Error saving goal:', err)
+      setFormError(err.message || 'Could not save the goal. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -121,15 +186,19 @@ export default function GoalProgressAdmin() {
 
       if (error) throw error
       setGoals((prev) => prev.filter((g) => g.id !== deleteTarget))
+      if (editingGoal?.id === deleteTarget) {
+        stopEditing()
+        setShowForm(false)
+      }
       setDeleteTarget(null)
     } catch (err) {
       console.error('Error deleting goal:', err)
     }
   }
 
-  // Pre-fill starting value when client/metric changes
+  // Pre-fill starting value when client/metric changes (new goals only)
   useEffect(() => {
-    if (!selectedClientId) return
+    if (!selectedClientId || editingGoal) return
 
     const client = clients.find(c => c.id === selectedClientId)
     const clientMeas = measurements.find(m => m.client_id === selectedClientId)
@@ -144,57 +213,7 @@ export default function GoalProgressAdmin() {
     } else {
       setStartingValue('')
     }
-  }, [selectedClientId, targetMetric, clients, measurements])
-
-  function calculateProgress(goal) {
-    let currentVal = goal.starting_value
-    
-    // Find current measured value
-    if (goal.target_metric === 'Weight' && goal.client?.current_weight) {
-      currentVal = goal.client.current_weight
-    } else {
-      const clientMeas = measurements.find(m => m.client_id === goal.client_id)
-      if (clientMeas) {
-        if (goal.target_metric === 'Chest' && clientMeas.chest) currentVal = clientMeas.chest
-        if (goal.target_metric === 'Waist' && clientMeas.waist) currentVal = clientMeas.waist
-        if (goal.target_metric === 'Arms' && clientMeas.arms) currentVal = clientMeas.arms
-        if (goal.target_metric === 'Thigh' && clientMeas.thigh) currentVal = clientMeas.thigh
-      }
-    }
-
-    const start = parseFloat(goal.starting_value)
-    const target = parseFloat(goal.target_value)
-    const current = parseFloat(currentVal)
-    
-    if (isNaN(start) || isNaN(target) || isNaN(current)) return { percent: 0, current, badges: [] }
-
-    const totalDiff = Math.abs(start - target)
-    if (totalDiff === 0) return { percent: 100, current, badges: ['100% Goal Hit 🏆'] }
-
-    // Depending on if target is higher or lower than start
-    const isDecreasing = target < start
-    
-    let progressPercent = 0
-    if (isDecreasing) {
-      if (current <= target) progressPercent = 100
-      else if (current >= start) progressPercent = 0
-      else progressPercent = ((start - current) / totalDiff) * 100
-    } else {
-      // Increasing (e.g. Muscle gain)
-      if (current >= target) progressPercent = 100
-      else if (current <= start) progressPercent = 0
-      else progressPercent = ((current - start) / totalDiff) * 100
-    }
-
-    progressPercent = Math.max(0, Math.min(100, Math.round(progressPercent)))
-
-    const badges = []
-    if (progressPercent >= 25 && progressPercent < 50) badges.push('Started Strong 🥉')
-    if (progressPercent >= 50 && progressPercent < 100) badges.push('Halfway There 🥈')
-    if (progressPercent === 100) badges.push('Target Reached 🏆')
-
-    return { percent: progressPercent, current, badges }
-  }
+  }, [selectedClientId, targetMetric, clients, measurements, editingGoal])
 
   if (loading) return <Loading />
 
@@ -202,7 +221,9 @@ export default function GoalProgressAdmin() {
   const photosShownFor = new Set()
   const goalSections = groupGoalsByStatus(
     goals.map((goal) => {
-      const progress = calculateProgress(goal)
+      // measurements are newest first, so find() gives this client's latest
+      const latest = measurements.find((m) => m.client_id === goal.client_id)
+      const progress = calculateGoalProgress(goal, goal.client?.current_weight, latest)
       return { goal, ...progress, status: getGoalStatus(progress.percent, goal.deadline) }
     })
   )
@@ -226,7 +247,7 @@ export default function GoalProgressAdmin() {
           goals.length > 0 && (
             <button
               className={`btn ${formOpen ? 'btn-secondary' : 'btn-primary'}`}
-              onClick={() => setShowForm((open) => !open)}
+              onClick={() => (formOpen ? closeForm() : setShowForm(true))}
               aria-expanded={formOpen}
               aria-controls="new-goal-form"
             >
@@ -242,7 +263,7 @@ export default function GoalProgressAdmin() {
           <div className="card-header">
             <span className="card-title">
               <Target size={20} aria-hidden="true" />
-              Set a new goal
+              {editingGoal ? `Edit goal: ${editingGoal.client?.name || 'Unknown client'} · ${editingGoal.target_metric}` : 'Set a new goal'}
             </span>
           </div>
 
@@ -260,6 +281,13 @@ export default function GoalProgressAdmin() {
             />
           ) : (
             <form onSubmit={handleSubmit}>
+              {formError && (
+                <div className="alert alert-error" role="alert">
+                  <TriangleAlert size={18} aria-hidden="true" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label" htmlFor="goal-client">Client *</label>
@@ -269,7 +297,7 @@ export default function GoalProgressAdmin() {
                     value={selectedClientId}
                     onChange={(e) => setSelectedClientId(e.target.value)}
                     required
-                    disabled={submitting}
+                    disabled={submitting || !!editingGoal}
                   >
                     <option value="" disabled>Select a client...</option>
                     {clients.map((c) => (
@@ -286,7 +314,7 @@ export default function GoalProgressAdmin() {
                     value={targetMetric}
                     onChange={(e) => setTargetMetric(e.target.value)}
                     required
-                    disabled={submitting}
+                    disabled={submitting || !!editingGoal}
                   >
                     <option value="Weight">Weight (kg)</option>
                     <option value="Chest">Chest (in)</option>
@@ -311,7 +339,7 @@ export default function GoalProgressAdmin() {
                     required
                     disabled={submitting}
                   />
-                  <span className="form-hint">Filled in from the latest measurement</span>
+                  {!editingGoal && <span className="form-hint">Filled in from the latest measurement</span>}
                 </div>
                 <div className="form-group">
                   <label className="form-label" htmlFor="goal-target">Target value ({unit}) *</label>
@@ -358,9 +386,22 @@ export default function GoalProgressAdmin() {
 
               <div className="form-actions">
                 <button type="submit" className="btn btn-primary" disabled={submitting || !selectedClientId}>
-                  {submitting ? <span className="btn-spinner" aria-hidden="true" /> : <Target size={18} aria-hidden="true" />}
-                  {submitting ? 'Setting Goal...' : 'Set Goal'}
+                  {submitting ? (
+                    <span className="btn-spinner" aria-hidden="true" />
+                  ) : editingGoal ? (
+                    <Save size={18} aria-hidden="true" />
+                  ) : (
+                    <Target size={18} aria-hidden="true" />
+                  )}
+                  {editingGoal
+                    ? submitting ? 'Saving...' : 'Save Changes'
+                    : submitting ? 'Setting Goal...' : 'Set Goal'}
                 </button>
+                {editingGoal && (
+                  <button type="button" className="btn btn-secondary" onClick={closeForm} disabled={submitting}>
+                    Cancel
+                  </button>
+                )}
               </div>
             </form>
           )}
@@ -390,6 +431,7 @@ export default function GoalProgressAdmin() {
                 current={current}
                 badges={badges}
                 status={status}
+                onEdit={() => startEditing(goal)}
                 onDelete={() => setDeleteTarget(goal.id)}
               >
                 {/* Progress Photos - once per client, under their first goal */}

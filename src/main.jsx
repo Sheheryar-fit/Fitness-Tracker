@@ -2,9 +2,11 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { useEffect, useState } from 'react'
 import { BrowserRouter } from 'react-router-dom'
+import { RefreshCw } from 'lucide-react'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { initInstallPrompt } from './lib/installPrompt'
+import { isStaleChunkError, reloadOnceForUpdate } from './lib/staleChunk'
 import './index.css'
 
 class AppCrashBoundary extends React.Component {
@@ -12,6 +14,8 @@ class AppCrashBoundary extends React.Component {
     super(props)
     this.state = {
       hasError: false,
+      stale: false, // a page file was replaced by a newer deploy
+      updating: false, // reloading automatically for that
       message: ''
     }
   }
@@ -19,15 +23,42 @@ class AppCrashBoundary extends React.Component {
   static getDerivedStateFromError(error) {
     return {
       hasError: true,
+      stale: isStaleChunkError(error),
       message: error?.message || 'Unexpected application error'
     }
   }
 
   componentDidCatch(error, info) {
     console.error('App crashed:', error, info)
+    if (isStaleChunkError(error) && reloadOnceForUpdate()) {
+      this.setState({ updating: true })
+    }
   }
 
   render() {
+    if (this.state.hasError && this.state.stale) {
+      return (
+        <div className="app-crash-screen" role="status" aria-live="polite">
+          <span className="icon-chip tone-orange" aria-hidden="true">
+            <RefreshCw size={22} />
+          </span>
+          <h1>{this.state.updating ? 'Updating the app…' : 'A new version is ready'}</h1>
+          <p>
+            {this.state.updating
+              ? 'One moment while the latest version loads.'
+              : "We've released an update since you opened the app. Reload to keep going."}
+          </p>
+          {!this.state.updating && (
+            <div className="app-crash-actions">
+              <button type="button" className="btn btn-primary" onClick={reloadWithCacheBust}>
+                Reload
+              </button>
+            </div>
+          )}
+        </div>
+      )
+    }
+
     if (this.state.hasError) {
       return (
         <div className="app-crash-screen" role="alert" aria-live="assertive">
@@ -82,24 +113,21 @@ function UpdateBanner() {
       setUpdateAvailable(true)
     }
 
-    function handlePreloadError(event) {
-      event.preventDefault()
+    // Don't call event.preventDefault() here: Vite then swallows the error and the page's
+    // import resolves to undefined, which crashes React with "reading 'default'". Letting it
+    // throw sends the real error to AppCrashBoundary, which knows how to handle it.
+    function handlePreloadError() {
       markUpdateNeeded()
     }
 
     function handleRuntimeError(event) {
-      const message = event?.message || ''
-      if (message.includes('Failed to fetch dynamically imported module')) {
+      if (isStaleChunkError(event?.message)) {
         markUpdateNeeded()
       }
     }
 
     function handleRejection(event) {
-      const message = String(event?.reason?.message || event?.reason || '')
-      if (
-        message.includes('Failed to fetch dynamically imported module') ||
-        message.includes('Importing a module script failed')
-      ) {
+      if (isStaleChunkError(String(event?.reason?.message || event?.reason || ''))) {
         event.preventDefault()
         markUpdateNeeded()
       }
